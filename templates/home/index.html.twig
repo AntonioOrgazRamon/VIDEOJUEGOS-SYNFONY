@@ -1,20 +1,2367 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Hello HomeController!{% endblock %}
+{% block title %}Plataforma de Juegos{% endblock %}
 
 {% block body %}
+<script>
+    // DEFINIR FUNCIONES GLOBALES INMEDIATAMENTE, ANTES DE CUALQUIER OTRA COSA
+    
+    // Funciones de notificación Toast (deben estar definidas ANTES de cualquier otro código)
+    window.showSuccess = function(message) {
+        showToast('success', 'Éxito', message);
+    };
+    
+    window.showError = function(message) {
+        showToast('error', 'Error', message);
+    };
+    
+    window.showInfo = function(message) {
+        showToast('info', 'Información', message);
+    };
+    
+    window.showWarning = function(message) {
+        showToast('warning', 'Advertencia', message);
+    };
+    
+    function showToast(type, title, message) {
+        console.log('=== showToast llamado ===', {type, title, message});
+        
+        // Asegurar que existe el contenedor
+        let container = document.querySelector('.toast-container');
+        if (!container) {
+            console.log('Creando contenedor de toast');
+            container = document.createElement('div');
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+            console.log('Contenedor creado:', container);
+        }
+        
+        // Crear el toast
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        
+        // Iconos según el tipo (usando símbolos Unicode más grandes)
+        const icons = {
+            success: '✓',
+            error: '✕',
+            info: 'ℹ',
+            warning: '⚠'
+        };
+        
+        toast.innerHTML = `
+            <div class="toast-icon">${icons[type] || '•'}</div>
+            <div class="toast-content">
+                <div class="toast-title">${title}</div>
+                <div class="toast-message">${message}</div>
+            </div>
+            <button class="toast-close" onclick="this.parentElement.remove()" title="Cerrar">×</button>
+        `;
+        
+        console.log('Toast creado:', toast);
+        container.appendChild(toast);
+        console.log('Toast añadido al contenedor. Total toasts:', container.children.length);
+        
+        // Forzar reflow para que la animación funcione
+        toast.offsetHeight;
+        
+        // Auto-eliminar después de 5 segundos
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.style.animation = 'slideOutRight 0.3s ease-out';
+                setTimeout(() => {
+                    if (toast.parentElement) {
+                        toast.remove();
+                    }
+                }, 300);
+            }
+        }, 5000);
+    }
+    
+    // DEFINIR openSettings INMEDIATAMENTE, ANTES DE CUALQUIER OTRA COSA
+    window.openSettings = function() {
+        console.log('=== openSettings EJECUTADO ===');
+        const modalElement = document.getElementById('settingsModal');
+        console.log('Modal encontrado:', modalElement);
+        if (!modalElement) {
+            console.error('ERROR: Modal no encontrado');
+            alert('Error: No se encontró el modal de configuración');
+            return;
+        }
+        try {
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                console.log('Usando Bootstrap Modal');
+                const modal = new bootstrap.Modal(modalElement);
+                
+                // Añadir event listeners para limpiar cuando se cierre el modal
+                modalElement.addEventListener('hidden.bs.modal', function() {
+                    console.log('Modal cerrado, limpiando backdrop');
+                    // Asegurar que se elimine el backdrop y se restaure el body
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    backdrops.forEach(backdrop => backdrop.remove());
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = '';
+                    document.body.style.paddingRight = '';
+                });
+                
+                modal.show();
+            } else {
+                console.log('Usando fallback manual');
+                modalElement.style.display = 'block';
+                modalElement.classList.add('show');
+                document.body.classList.add('modal-open');
+                const backdrop = document.createElement('div');
+                backdrop.className = 'modal-backdrop fade show';
+                backdrop.id = 'modalBackdrop';
+                document.body.appendChild(backdrop);
+                backdrop.addEventListener('click', function() {
+                    window.closeSettings();
+                });
+            }
+        } catch (error) {
+            console.error('ERROR al abrir modal:', error);
+            alert('Error al abrir el modal: ' + error.message);
+        }
+    };
+    
+    // Función para cerrar el modal correctamente
+    window.closeSettings = function() {
+        const modalElement = document.getElementById('settingsModal');
+        if (modalElement) {
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                if (modal) {
+                    modal.hide();
+                } else {
+                    // Si no hay instancia, crear una y cerrarla
+                    const newModal = new bootstrap.Modal(modalElement);
+                    newModal.hide();
+                }
+            } else {
+                // Fallback manual
+                modalElement.style.display = 'none';
+                modalElement.classList.remove('show');
+                document.body.classList.remove('modal-open');
+                const backdrop = document.getElementById('modalBackdrop');
+                if (backdrop) {
+                    backdrop.remove();
+                }
+            }
+            
+            // Limpiar cualquier backdrop que quede
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => backdrop.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+        }
+    };
+    
+    // Establecer tema e idioma al cargar la página
+    document.body.setAttribute('data-theme', '{{ themeMode }}');
+    document.body.setAttribute('data-language', '{{ language }}');
+</script>
 <style>
-    .example-wrapper { margin: 1em auto; max-width: 800px; width: 95%; font: 18px/1.5 sans-serif; }
-    .example-wrapper code { background: #F5F5F5; padding: 2px 6px; }
+    * {
+        box-sizing: border-box;
+    }
+    
+    body {
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        overflow-x: hidden;
+        overflow-y: auto;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+    
+    /* Sistema de Notificaciones Toast - Diseño Mejorado */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-width: 420px;
+        pointer-events: none;
+    }
+    
+    .toast {
+        background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08);
+        padding: 18px 20px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 320px;
+        max-width: 420px;
+        animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        border-left: 5px solid;
+        pointer-events: auto;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .toast:hover {
+        transform: translateX(-4px);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .toast::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 5px;
+        height: 100%;
+        background: inherit;
+    }
+    
+    .toast.success {
+        border-left-color: #10b981;
+        background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+    }
+    
+    .toast.success::before {
+        background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+    }
+    
+    .toast.error {
+        border-left-color: #ef4444;
+        background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
+    }
+    
+    .toast.error::before {
+        background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+    }
+    
+    .toast.info {
+        border-left-color: #3b82f6;
+        background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+    }
+    
+    .toast.info::before {
+        background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+    }
+    
+    .toast.warning {
+        border-left-color: #f59e0b;
+        background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
+    }
+    
+    .toast.warning::before {
+        background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+    }
+    
+    .toast-icon {
+        width: 40px;
+        height: 40px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-size: 20px;
+        font-weight: bold;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .toast.success .toast-icon {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+    
+    .toast.error .toast-icon {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+    }
+    
+    .toast.info .toast-icon {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+    }
+    
+    .toast.warning .toast-icon {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+    }
+    
+    .toast-content {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .toast-title {
+        font-weight: 700;
+        font-size: 15px;
+        margin-bottom: 4px;
+        color: #666F88;
+        letter-spacing: -0.01em;
+    }
+    
+    .toast-message {
+        font-size: 14px;
+        color: #788199;
+        line-height: 1.5;
+        word-wrap: break-word;
+    }
+    
+    .toast-close {
+        background: rgba(102, 111, 136, 0.1);
+        border: none;
+        cursor: pointer;
+        padding: 6px;
+        color: #8990a2;
+        font-size: 20px;
+        line-height: 1;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+    
+    .toast-close:hover {
+        background: rgba(102, 111, 136, 0.2);
+        color: #666F88;
+        transform: rotate(90deg);
+    }
+    
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOutRight {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+    
+    .toast.hiding {
+        animation: slideOutRight 0.3s ease-out forwards;
+    }
+    
+    .main-layout {
+        display: flex;
+        height: 100vh;
+        width: 100%;
+    }
+    
+    .games-section {
+        width: 80%;
+        height: 100vh;
+        overflow: visible;
+        background: #f5f6f8;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .header {
+        background: #fff;
+        padding: 15px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        z-index: 100;
+        position: relative;
+    }
+    
+    .logo {
+        font-size: 28px;
+        font-weight: bold;
+        color: #666F88;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .logo-circle {
+        width: 32px;
+        height: 32px;
+        background: #788199;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    
+    .header-actions {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+    }
+    
+    .header-icon {
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: background 0.2s;
+    }
+    
+    .header-icon:hover {
+        background: #f5f6f8;
+    }
+    
+    .games-container {
+        flex: 1;
+        padding: 20px 30px;
+        overflow: visible;
+        height: calc(100vh - 80px);
+        position: relative;
+    }
+    
+    .profile-section {
+        width: 20%;
+        height: 100vh;
+        background: #fff;
+        box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+        padding: 20px;
+        overflow-y: auto;
+    }
 </style>
 
-<div class="example-wrapper">
-    <h1>Hello {{ controller_name }}! ✅</h1>
-
-    This friendly message is coming from:
-    <ul>
-        <li>Your controller at <code>C:/xampp/htdocs/plataforma_juegos/src/Controller/HomeController.php</code></li>
-        <li>Your template at <code>C:/xampp/htdocs/plataforma_juegos/templates/home/index.html.twig</code></li>
-    </ul>
+{% if app.user %}
+    <div class="main-layout">
+        <!-- Sección de Juegos (80%) -->
+        <div class="games-section">
+            <!-- Header -->
+            <div class="header">
+                <a href="{{ path('app_home') }}" style="text-decoration: none; color: inherit;">
+                    <div class="logo" style="cursor: pointer;">
+                        <span>Plataforma</span>
+                        <span class="logo-circle"></span>
+                    </div>
+                </a>
+                <div class="header-actions">
+                    <div class="header-icon search-icon" title="Buscar" id="searchIcon">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="header-icon favorites-icon" title="Favoritos" id="favoritesIcon">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <div class="search-box" id="searchBox" style="display: none;">
+                    <input type="text" id="searchInput" placeholder="Buscar por nombre..." value="" style="padding: 8px 12px; border: 1px solid #b5bac9; border-radius: 6px; width: 300px; font-size: 14px;">
+                </div>
+            </div>
+            
+            <!-- Contenedor de Juegos -->
+            <div class="games-container">
+                <style>
+                .games-grid {
+                    display: grid;
+                    grid-template-columns: repeat(12, 1fr);
+                    grid-auto-rows: minmax(80px, auto);
+                    grid-auto-flow: dense;
+                    gap: 15px;
+                    padding: 0;
+                    overflow: visible;
+                }
+                
+                .game-card {
+                    position: relative;
+                    border-radius: 12px;
+                    overflow: visible;
+                    cursor: pointer;
+                    transition: transform 0.2s ease, box-shadow 0.2s ease;
+                    background: #fff;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+                    aspect-ratio: 1;
+                    user-select: none;
+                    -webkit-user-select: none;
+                    -moz-user-select: none;
+                    -ms-user-select: none;
+                }
+                
+                .game-card .game-icon,
+                .game-card .game-placeholder {
+                    overflow: hidden;
+                    border-radius: 12px;
+                    width: 100%;
+                    height: 100%;
+                }
+                
+                /* Dos pequeños arriba a la derecha */
+                .game-card:not(.split-card):nth-child(1) {
+                    grid-column: 11;
+                    grid-row: 1;
+                }
+                .game-card:not(.split-card):nth-child(2) {
+                    grid-column: 12;
+                    grid-row: 1;
+                }
+                
+                /* Grandes (3x3) - menos frecuentes */
+                .game-card:not(.split-card):nth-child(15n+1),
+                .game-card:not(.split-card):nth-child(15n+2) {
+                    grid-column: span 3;
+                    grid-row: span 3;
+                }
+                
+                /* Medianos (2x2) - menos frecuentes */
+                .game-card:not(.split-card):nth-child(15n+6),
+                .game-card:not(.split-card):nth-child(15n+11),
+                .game-card:not(.split-card):nth-child(15n+3) {
+                    grid-column: span 2;
+                    grid-row: span 2;
+                }
+                
+                /* Pequeños (1x1) - la mayoría */
+                .game-card:not(.split-card):nth-child(15n+4),
+                .game-card:not(.split-card):nth-child(15n+5),
+                .game-card:not(.split-card):nth-child(15n+7),
+                .game-card:not(.split-card):nth-child(15n+8),
+                .game-card:not(.split-card):nth-child(15n+9),
+                .game-card:not(.split-card):nth-child(15n+10),
+                .game-card:not(.split-card):nth-child(15n+12),
+                .game-card:not(.split-card):nth-child(15n+13),
+                .game-card:not(.split-card):nth-child(15n+14),
+                .game-card:not(.split-card):nth-child(15n+15) {
+                    grid-column: span 1;
+                    grid-row: span 1;
+                }
+                
+                /* Los cuadrados divididos siempre son pequeños */
+                .game-card.split-card {
+                    grid-column: span 1 !important;
+                    grid-row: span 1 !important;
+                }
+                
+                .game-card:hover {
+                    transform: translateY(-4px) scale(1.05);
+                    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+                    z-index: 1000;
+                    position: relative;
+                    will-change: transform;
+                }
+                
+                /* Asegurar que el contenedor no corte los elementos en hover */
+                .games-container {
+                    contain: none;
+                }
+                
+                .game-icon {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    display: block;
+                    border-radius: 12px;
+                    user-select: none;
+                    -webkit-user-select: none;
+                    -moz-user-select: none;
+                    -ms-user-select: none;
+                    pointer-events: none;
+                }
+                
+                .game-card > * {
+                    border-radius: 12px;
+                }
+                
+                .game-name-overlay {
+                    position: absolute;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+                    color: white;
+                    padding: 10px 8px 8px;
+                    text-align: center;
+                    font-weight: 600;
+                    font-size: 13px;
+                    opacity: 0;
+                    transform: translateY(5px);
+                    transition: opacity 0.2s ease, transform 0.2s ease;
+                    user-select: none;
+                    -webkit-user-select: none;
+                    -moz-user-select: none;
+                    -ms-user-select: none;
+                    pointer-events: none;
+                }
+                
+                .game-card:hover .game-name-overlay {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+                
+                .game-favorite {
+                    position: absolute;
+                    top: 8px;
+                    right: 8px;
+                    width: 24px;
+                    height: 24px;
+                    background: rgba(255,255,255,0.9);
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    opacity: 0;
+                    transition: opacity 0.2s ease;
+                    cursor: pointer;
+                    z-index: 10;
+                }
+                
+                .game-card:hover .game-favorite {
+                    opacity: 1;
+                }
+                
+                .game-favorite.liked {
+                    opacity: 1;
+                }
+                
+                .game-favorite svg {
+                    width: 14px;
+                    height: 14px;
+                    fill: #ef4444;
+                }
+                
+                .game-favorite:not(.liked) svg {
+                    fill: none;
+                    stroke: #ef4444;
+                    stroke-width: 2;
+                }
+                
+                .header-icon.active {
+                    background: #fef2f2;
+                }
+                
+                .header-icon.active svg {
+                    fill: #ef4444;
+                    stroke: #ef4444;
+                }
+                
+                .search-box {
+                    position: absolute;
+                    top: 100%;
+                    right: 30px;
+                    margin-top: 10px;
+                    z-index: 1000;
+                }
+                
+                .game-placeholder {
+                    width: 100%;
+                    height: 100%;
+                    background: linear-gradient(135deg, #666F88 0%, #788199 100%);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 48px;
+                    user-select: none;
+                    -webkit-user-select: none;
+                    -moz-user-select: none;
+                    -ms-user-select: none;
+                    pointer-events: none;
+                }
+                
+                /* Estilos para juegos bloqueados */
+                .game-disabled {
+                    opacity: 0.5;
+                    filter: grayscale(100%);
+                    position: relative;
+                }
+                
+                /* Los usuarios normales no pueden hacer clic en juegos bloqueados */
+                .game-disabled:not([data-admin-context]) {
+                    pointer-events: none;
+                }
+                
+                /* Los admins pueden hacer clic derecho en juegos bloqueados */
+                .game-disabled[data-admin-context] {
+                    pointer-events: auto;
+                    cursor: context-menu;
+                }
+                
+                /* Los elementos internos no deben capturar eventos, pero el card sí */
+                .game-disabled[data-admin-context] > * {
+                    pointer-events: none;
+                }
+                
+                /* El overlay de bloqueado tampoco debe capturar eventos */
+                .game-disabled[data-admin-context] .game-blocked-overlay {
+                    pointer-events: none;
+                }
+                
+                .game-disabled .game-blocked-overlay {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.6);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 100;
+                    pointer-events: none;
+                }
+                
+                .game-disabled .game-blocked-text {
+                    color: white;
+                    font-size: 24px;
+                    font-weight: bold;
+                    text-transform: uppercase;
+                    letter-spacing: 3px;
+                    transform: rotate(-45deg);
+                    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+                    animation: blockedPulse 2s ease-in-out infinite;
+                }
+                
+                @keyframes blockedPulse {
+                    0%, 100% {
+                        opacity: 0.8;
+                    }
+                    50% {
+                        opacity: 1;
+                    }
+                }
+                
+                /* Menú contextual de admin */
+                .admin-context-menu {
+                    position: fixed;
+                    background: white;
+                    border: 1px solid #b5bac9;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    padding: 8px 0;
+                    z-index: 10000;
+                    min-width: 200px;
+                    display: none;
+                }
+                
+                .admin-context-menu-item {
+                    padding: 10px 16px;
+                    cursor: pointer;
+                    transition: background-color 0.2s;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-size: 14px;
+                }
+                
+                .admin-context-menu-item:hover {
+                    background-color: #f5f5f5;
+                }
+                
+                .admin-context-menu-item.danger {
+                    color: #dc3545;
+                }
+                
+                .admin-context-menu-item.danger:hover {
+                    background-color: #fee;
+                }
+                
+                @media (max-width: 992px) {
+                    .main-layout {
+                        flex-direction: column;
+                    }
+                    .games-section {
+                        width: 100%;
+                        height: 85vh;
+                    }
+                    .profile-section {
+                        width: 100%;
+                        height: 15vh;
+                        display: flex;
+                        align-items: center;
+                        padding: 10px 20px;
+                    }
+                    .profile-section > div {
+                        display: flex;
+                        align-items: center;
+                        gap: 20px;
+                        width: 100%;
+                    }
+                    .profile-section .text-center {
+                        text-align: left !important;
+                        margin: 0;
+                    }
+                    .games-grid {
+                        grid-template-columns: repeat(8, 1fr);
+                        grid-auto-flow: dense;
+                    }
+                    .game-card:nth-child(10n+1),
+                    .game-card:nth-child(10n+6) {
+                        grid-column: span 3;
+                        grid-row: span 3;
+                    }
+                    .game-card:nth-child(10n+2),
+                    .game-card:nth-child(10n+3),
+                    .game-card:nth-child(10n+4),
+                    .game-card:nth-child(10n+5),
+                    .game-card:nth-child(10n+7),
+                    .game-card:nth-child(10n+8) {
+                        grid-column: span 2;
+                        grid-row: span 2;
+                    }
+                    .game-card:nth-child(10n+9),
+                    .game-card:nth-child(10n+10) {
+                        grid-column: span 1;
+                        grid-row: span 1;
+                    }
+                }
+                
+                @media (max-width: 768px) {
+                    .games-grid {
+                        grid-template-columns: repeat(6, 1fr);
+                        gap: 10px;
+                    }
+                    .game-card:nth-child(n) {
+                        grid-column: span 2;
+                        grid-row: span 2;
+                    }
+                }
+                
+                @media (max-width: 480px) {
+                    .games-grid {
+                        grid-template-columns: repeat(4, 1fr);
+                        gap: 8px;
+                    }
+                    .game-card:nth-child(n) {
+                        grid-column: span 2;
+                        grid-row: span 2;
+                    }
+                }
+                </style>
+                
+                <div class="games-grid" id="gamesGrid">
+                    {% if gamesToDisplay|length > 0 %}
+                        {% for item in gamesToDisplay %}
+                            {% set currentGame = item.game %}
+                            {% set i = item.cardIndex %}
+                            
+                            {% if item.type == 'split' %}
+                                {# Card dividido (pequeño) #}
+                                <div class="game-card split-card {% if not currentGame.isActive %}game-disabled{% endif %}" 
+                                     data-game-id="{{ currentGame.id }}" 
+                                     data-is-favorite="{% if currentGame.id in likedGameIds %}true{% else %}false{% endif %}"
+                                     data-is-active="{{ currentGame.isActive ? 'true' : 'false' }}"
+                                     {% if isAdmin %}data-admin-context="true"{% endif %}>
+                                    {% if currentGame.icon %}
+                                        <img src="/{{ currentGame.icon }}" class="game-icon" alt="{{ currentGame.name }}" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                        <div class="game-placeholder" style="display: none;"><span>🎮</span></div>
+                                    {% else %}
+                                        <div class="game-placeholder"><span>🎮</span></div>
+                                    {% endif %}
+                                    <div class="game-name-overlay">{{ currentGame.name }}</div>
+                                    {% if not currentGame.isActive %}
+                                    <div class="game-blocked-overlay">
+                                        <div class="game-blocked-text">BLOQUEADO</div>
 </div>
+                                    {% endif %}
+                                    <div class="game-favorite {% if currentGame.id in likedGameIds %}liked{% endif %}" 
+                                         data-game-id="{{ currentGame.id }}"
+                                         onclick="event.stopPropagation(); toggleLike({{ currentGame.id }}, this);">
+                                        <svg viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                            {% else %}
+                                {# Juego normal #}
+                                <div class="game-card {% if not currentGame.isActive %}game-disabled{% endif %}" 
+                                     data-game-id="{{ currentGame.id }}" 
+                                     data-is-favorite="{% if currentGame.id in likedGameIds %}true{% else %}false{% endif %}"
+                                     data-is-active="{{ currentGame.isActive ? 'true' : 'false' }}"
+                                     {% if isAdmin %}data-admin-context="true"{% endif %}>
+                                    {% if currentGame.icon %}
+                                        <img src="/{{ currentGame.icon }}" class="game-icon" alt="{{ currentGame.name }}" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                        <div class="game-placeholder" style="display: none;"><span>🎮</span></div>
+                                    {% else %}
+                                        <div class="game-placeholder"><span>🎮</span></div>
+                                    {% endif %}
+                                    <div class="game-name-overlay">{{ currentGame.name }}</div>
+                                    {% if not currentGame.isActive %}
+                                    <div class="game-blocked-overlay">
+                                        <div class="game-blocked-text">BLOQUEADO</div>
+                                    </div>
+                                    {% endif %}
+                                    <div class="game-favorite {% if currentGame.id in likedGameIds %}liked{% endif %}" 
+                                         data-game-id="{{ currentGame.id }}"
+                                         onclick="event.stopPropagation(); toggleLike({{ currentGame.id }}, this);">
+                                        <svg viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        <script>
+                        (function() {
+                            const grid = document.getElementById('gamesGrid');
+                            const container = grid.parentElement;
+                            let cards = [];
+                            
+                            function updateCardsList() {
+                                cards = Array.from(grid.querySelectorAll('.game-card'));
+                            }
+                            
+                            function hideOverflowCards() {
+                                if (!container || !grid) return;
+                                
+                                updateCardsList();
+                                
+                                const containerHeight = container.clientHeight;
+                                const containerTop = container.getBoundingClientRect().top;
+                                const maxBottom = containerTop + containerHeight;
+                                
+                                cards.forEach(card => {
+                                    // Solo ocultar si el card ya está visible (no está oculto por filtros)
+                                    const currentDisplay = window.getComputedStyle(card).display;
+                                    if (currentDisplay === 'none') {
+                                        return; // No tocar los que ya están ocultos por filtros
+                                    }
+                                    
+                                    const cardBottom = card.getBoundingClientRect().bottom;
+                                    
+                                    if (cardBottom > maxBottom) {
+                                        card.style.display = 'none';
+                                    } else {
+                                        card.style.display = '';
+                                    }
+                                });
+                            }
+                            
+                            // Esperar a que se renderice completamente
+                            if (document.readyState === 'loading') {
+                                document.addEventListener('DOMContentLoaded', () => {
+                                    setTimeout(hideOverflowCards, 300);
+                                });
+                            } else {
+                                setTimeout(hideOverflowCards, 300);
+                            }
+                            
+                            window.addEventListener('resize', () => {
+                                setTimeout(hideOverflowCards, 100);
+                            });
+                            
+                            // Exportar función para uso externo
+                            window.hideOverflowCards = hideOverflowCards;
+                        })();
+                        </script>
+                        
+                        <script>
+                        // Verificar estado de juegos en tiempo real (polling cada 5 segundos)
+                        // Activo para TODOS los usuarios (admin y normales) para ver cambios en tiempo real
+                        let gamesStatusCheck = setInterval(function() {
+                            fetch('/admin/games/status', {
+                                method: 'GET',
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                }
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    // Actualizar estado de los juegos
+                                    Object.keys(data.games).forEach(gameId => {
+                                        const gameStatus = data.games[gameId];
+                                        const gameCards = document.querySelectorAll(`.game-card[data-game-id="${gameId}"]`);
+                                        
+                                        gameCards.forEach(card => {
+                                            const isActive = gameStatus.isActive;
+                                            const currentIsActive = card.getAttribute('data-is-active') === 'true';
+                                            
+                                            // Solo actualizar si el estado ha cambiado
+                                            if (isActive !== currentIsActive) {
+                                                card.setAttribute('data-is-active', isActive ? 'true' : 'false');
+                                                
+                                                if (isActive) {
+                                                    card.classList.remove('game-disabled');
+                                                    // Eliminar overlay de bloqueado
+                                                    const blockedOverlay = card.querySelector('.game-blocked-overlay');
+                                                    if (blockedOverlay) {
+                                                        blockedOverlay.remove();
+                                                    }
+                                                } else {
+                                                    card.classList.add('game-disabled');
+                                                    // Añadir overlay de bloqueado si no existe
+                                                    if (!card.querySelector('.game-blocked-overlay')) {
+                                                        const overlay = document.createElement('div');
+                                                        overlay.className = 'game-blocked-overlay';
+                                                        overlay.innerHTML = '<div class="game-blocked-text">BLOQUEADO</div>';
+                                                        card.appendChild(overlay);
+                                                    }
+                                                }
+                                            }
+                                        });
+                                        
+                                        // Asegurar que los admins tengan el atributo data-admin-context
+                                        {% if isAdmin %}
+                                        gameCards.forEach(card => {
+                                            if (!card.hasAttribute('data-admin-context')) {
+                                                card.setAttribute('data-admin-context', 'true');
+                                            }
+                                        });
+                                        {% endif %}
+                                    });
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error al verificar estado de juegos:', error);
+                            });
+                        }, 3000); // Verificar cada 3 segundos para respuesta más rápida
+                        
+                        // Menú contextual para admin
+                        {% if isAdmin %}
+                        window.showAdminMenu = function(event, gameId, gameName, isActive) {
+                            console.log('showAdminMenu llamado', gameId, gameName, isActive);
+                            
+                            // Prevenir el menú contextual por defecto
+                            event.preventDefault();
+                            event.stopPropagation();
+                            
+                            let menu = document.getElementById('adminContextMenu');
+                            if (!menu) {
+                                // Crear menú si no existe
+                                menu = document.createElement('div');
+                                menu.id = 'adminContextMenu';
+                                menu.className = 'admin-context-menu';
+                                document.body.appendChild(menu);
+                            }
+                            
+                            // Convertir isActive a boolean si es string
+                            const isActiveBool = isActive === 'true' || isActive === true || isActive === 1;
+                            
+                            menu.innerHTML = `
+                                <div class="admin-context-menu-item" id="toggleGameActive">
+                                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                        <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.061L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
+                                    </svg>
+                                    <span id="toggleGameText">${isActiveBool ? 'Bloquear Juego' : 'Activar Juego'}</span>
+                                </div>
+                            `;
+                            
+                            // Posicionar menú
+                            menu.style.display = 'block';
+                            menu.style.left = (event.clientX || event.pageX) + 'px';
+                            menu.style.top = (event.clientY || event.pageY) + 'px';
+                            menu.style.zIndex = '10000';
+                            
+                            // Añadir evento al botón
+                            const toggleBtn = document.getElementById('toggleGameActive');
+                            if (toggleBtn) {
+                                toggleBtn.onclick = function(e) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    window.toggleGameActive(gameId);
+                                    menu.style.display = 'none';
+                                };
+                            }
+                            
+                            // Cerrar menú al hacer clic fuera
+                            setTimeout(() => {
+                                const closeMenu = function(e) {
+                                    if (menu && !menu.contains(e.target)) {
+                                        menu.style.display = 'none';
+                                        document.removeEventListener('click', closeMenu);
+                                    }
+                                };
+                                document.addEventListener('click', closeMenu);
+                            }, 100);
+                        };
+                        
+                        window.toggleGameActive = function(gameId) {
+                            fetch('/admin/game/toggle-active/' + gameId, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                }
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    // Actualizar todos los cards del juego
+                                    const gameCards = document.querySelectorAll(`.game-card[data-game-id="${gameId}"]`);
+                                    gameCards.forEach(card => {
+                                        card.setAttribute('data-is-active', data.isActive ? 'true' : 'false');
+                                        
+                                        if (data.isActive) {
+                                            card.classList.remove('game-disabled');
+                                            // Eliminar overlay de bloqueado
+                                            const blockedOverlay = card.querySelector('.game-blocked-overlay');
+                                            if (blockedOverlay) {
+                                                blockedOverlay.remove();
+                                            }
+                                        } else {
+                                            card.classList.add('game-disabled');
+                                            // Añadir overlay de bloqueado si no existe
+                                            if (!card.querySelector('.game-blocked-overlay')) {
+                                                const overlay = document.createElement('div');
+                                                overlay.className = 'game-blocked-overlay';
+                                                overlay.innerHTML = '<div class="game-blocked-text">BLOQUEADO</div>';
+                                                card.appendChild(overlay);
+                                            }
+                                        }
+                                        
+                                        // Asegurar que los admins mantengan el atributo data-admin-context
+                                        {% if isAdmin %}
+                                        gameCards.forEach(card => {
+                                            if (!card.hasAttribute('data-admin-context')) {
+                                                card.setAttribute('data-admin-context', 'true');
+                                            }
+                                        });
+                                        {% endif %}
+                                    });
+                                } else {
+                                    if (typeof window.showError === 'function') {
+                                        window.showError(data.message || 'Error desconocido');
+                                    } else {
+                                        alert(data.message || 'Error desconocido');
+                                    }
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                if (typeof window.showError === 'function') {
+                                    window.showError('Error al cambiar el estado del juego');
+                                } else {
+                                    alert('Error al cambiar el estado del juego');
+                                }
+                            });
+                        };
+                        {% endif %}
+                        
+                        // Prevenir clic en juegos bloqueados
+                        document.addEventListener('click', function(e) {
+                            const gameCard = e.target.closest('.game-card.game-disabled');
+                            if (gameCard && !gameCard.closest('.admin-context-menu')) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                return false;
+                            }
+                        });
+                        
+                        {% if isAdmin %}
+                        // Event delegation para clic derecho en admin (funciona incluso en juegos bloqueados)
+                        // Usar event delegation en el contenedor padre para capturar todos los eventos
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const gamesGrid = document.getElementById('gamesGrid');
+                            if (gamesGrid) {
+                                // Usar capture phase para capturar el evento antes de que los elementos internos lo bloqueen
+                                gamesGrid.addEventListener('contextmenu', function(e) {
+                                    // Buscar el card más cercano que tenga data-admin-context
+                                    let gameCard = null;
+                                    let element = e.target;
+                                    
+                                    // Buscar desde el target hacia arriba hasta encontrar un game-card con data-admin-context
+                                    while (element && element !== gamesGrid) {
+                                        if (element.classList && element.classList.contains('game-card')) {
+                                            if (element.hasAttribute('data-admin-context')) {
+                                                gameCard = element;
+                                                break;
+                                            }
+                                        }
+                                        element = element.parentElement;
+                                    }
+                                    
+                                    if (gameCard) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        
+                                        const gameId = parseInt(gameCard.getAttribute('data-game-id'));
+                                        const isActive = gameCard.getAttribute('data-is-active') === 'true';
+                                        const gameName = gameCard.querySelector('.game-name-overlay')?.textContent || 'Juego';
+                                        
+                                        console.log('Clic derecho detectado en juego:', gameId, 'Activo:', isActive, 'Card:', gameCard);
+                                        
+                                        if (gameId && window.showAdminMenu) {
+                                            window.showAdminMenu(e, gameId, gameName, isActive);
+                                        }
+                                        return false;
+                                    }
+                                }, true); // Usar capture phase (true) para capturar antes de que los elementos internos lo bloqueen
+                            }
+                        });
+                        {% endif %}
+                        
+                        // Manejar doble clic en las tarjetas de juego para toggle de favoritos
+                        document.addEventListener('DOMContentLoaded', function() {
+                            // Esperar a que las tarjetas se rendericen
+                            setTimeout(function() {
+                                const gameCards = document.querySelectorAll('.game-card');
+                                
+                                gameCards.forEach(card => {
+                                    let clickTimer = null;
+                                    
+                                    // Manejar clic simple (para navegación futura)
+                                    card.addEventListener('click', function(e) {
+                                        // Si se hace clic en el corazón, no hacer nada aquí
+                                        if (e.target.closest('.game-favorite')) {
+                                            return;
+                                        }
+                                        
+                                        // Si es un doble clic, el timer se cancelará
+                                        if (clickTimer === null) {
+                                            clickTimer = setTimeout(function() {
+                                                clickTimer = null;
+                                                // Aquí puedes añadir navegación al juego en el futuro
+                                                // window.location.href = '#';
+                                            }, 300); // 300ms para detectar doble clic
+                                        }
+                                    });
+                                    
+                                    // Manejar doble clic para toggle de favoritos
+                                    card.addEventListener('dblclick', function(e) {
+                                        // No permitir doble clic en juegos bloqueados
+                                        if (card.classList.contains('game-disabled')) {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            return;
+                                        }
+                                        
+                                        // Cancelar el clic simple
+                                        if (clickTimer !== null) {
+                                            clearTimeout(clickTimer);
+                                            clickTimer = null;
+                                        }
+                                        
+                                        // Prevenir que se propague
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        
+                                        // Obtener el gameId y el elemento del corazón
+                                        const gameId = parseInt(card.getAttribute('data-game-id'));
+                                        const favoriteIcon = card.querySelector('.game-favorite');
+                                        
+                                        if (gameId && favoriteIcon) {
+                                            toggleLike(gameId, favoriteIcon);
+                                        }
+                                    });
+                                });
+                            }, 100);
+                        });
+                        
+                        // Toggle like con actualización optimista (instantánea)
+                        function toggleLike(gameId, element) {
+                            // Obtener el estado actual
+                            const gameCard = element.closest('.game-card');
+                            const currentIsFavorite = gameCard ? gameCard.getAttribute('data-is-favorite') === 'true' : false;
+                            const newIsFavorite = !currentIsFavorite;
+                            
+                            // ACTUALIZACIÓN OPTIMISTA: Actualizar UI inmediatamente
+                            const allGameCards = document.querySelectorAll(`.game-card[data-game-id="${gameId}"]`);
+                            allGameCards.forEach(card => {
+                                card.setAttribute('data-is-favorite', newIsFavorite ? 'true' : 'false');
+                                
+                                const favoriteIcon = card.querySelector('.game-favorite');
+                                if (favoriteIcon) {
+                                    if (newIsFavorite) {
+                                        favoriteIcon.classList.add('liked');
+                                        const svg = favoriteIcon.querySelector('svg');
+                                        if (svg) {
+                                            svg.setAttribute('fill', 'currentColor');
+                                            svg.removeAttribute('stroke');
+                                            svg.removeAttribute('stroke-width');
+                                        }
+                                    } else {
+                                        favoriteIcon.classList.remove('liked');
+                                        const svg = favoriteIcon.querySelector('svg');
+                                        if (svg) {
+                                            svg.setAttribute('fill', 'none');
+                                            svg.setAttribute('stroke', '#ef4444');
+                                            svg.setAttribute('stroke-width', '2');
+                                        }
+                                    }
+                                }
+                                
+                                // Si el filtro de favoritos está activo, ocultar/mostrar el card
+                                if (window.showFavoritesOnly) {
+                                    card.style.display = newIsFavorite ? '' : 'none';
+                                }
+                                
+                                // Re-aplicar filtros después de cambiar favorito
+                                if (window.filterGames) {
+                                    window.filterGames();
+                                }
+                            });
+                            
+                            // Hacer la llamada al servidor
+                            fetch('/game/toggle-like/' + gameId, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                }
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    // Confirmar que el estado es correcto (ya está actualizado)
+                                    // Solo actualizar si hay alguna diferencia
+                                    if (data.liked !== newIsFavorite) {
+                                        // Revertir si el servidor devuelve un estado diferente
+                                        const allGameCards = document.querySelectorAll(`.game-card[data-game-id="${gameId}"]`);
+                                        allGameCards.forEach(card => {
+                                            card.setAttribute('data-is-favorite', data.liked ? 'true' : 'false');
+                                            
+                                            const favoriteIcon = card.querySelector('.game-favorite');
+                                            if (favoriteIcon) {
+                                                if (data.liked) {
+                                                    favoriteIcon.classList.add('liked');
+                                                    const svg = favoriteIcon.querySelector('svg');
+                                                    if (svg) {
+                                                        svg.setAttribute('fill', 'currentColor');
+                                                        svg.removeAttribute('stroke');
+                                                        svg.removeAttribute('stroke-width');
+                                                    }
+                                                } else {
+                                                    favoriteIcon.classList.remove('liked');
+                                                    const svg = favoriteIcon.querySelector('svg');
+                                                    if (svg) {
+                                                        svg.setAttribute('fill', 'none');
+                                                        svg.setAttribute('stroke', '#ef4444');
+                                                        svg.setAttribute('stroke-width', '2');
+                                                    }
+                                                }
+                                            }
+                                            
+                                            if (showFavoritesOnly) {
+                                                card.style.display = data.liked ? '' : 'none';
+                                            }
+                                        });
+                                    }
+                                } else {
+                                    // Revertir el cambio si falla
+                                    const allGameCards = document.querySelectorAll(`.game-card[data-game-id="${gameId}"]`);
+                                    allGameCards.forEach(card => {
+                                        card.setAttribute('data-is-favorite', currentIsFavorite ? 'true' : 'false');
+                                        
+                                        const favoriteIcon = card.querySelector('.game-favorite');
+                                        if (favoriteIcon) {
+                                            if (currentIsFavorite) {
+                                                favoriteIcon.classList.add('liked');
+                                                const svg = favoriteIcon.querySelector('svg');
+                                                if (svg) {
+                                                    svg.setAttribute('fill', 'currentColor');
+                                                    svg.removeAttribute('stroke');
+                                                    svg.removeAttribute('stroke-width');
+                                                }
+                                            } else {
+                                                favoriteIcon.classList.remove('liked');
+                                                const svg = favoriteIcon.querySelector('svg');
+                                                if (svg) {
+                                                    svg.setAttribute('fill', 'none');
+                                                    svg.setAttribute('stroke', '#ef4444');
+                                                    svg.setAttribute('stroke-width', '2');
+                                                }
+                                            }
+                                        }
+                                        
+                                        if (showFavoritesOnly) {
+                                            card.style.display = currentIsFavorite ? '' : 'none';
+                                        }
+                                    });
+                                    if (typeof window.showError === 'function') {
+                                        window.showError('Error al actualizar favoritos');
+                                    } else {
+                                        alert('Error al actualizar favoritos');
+                                    }
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                // Revertir el cambio si falla
+                                const allGameCards = document.querySelectorAll(`.game-card[data-game-id="${gameId}"]`);
+                                allGameCards.forEach(card => {
+                                    card.setAttribute('data-is-favorite', currentIsFavorite ? 'true' : 'false');
+                                    
+                                    const favoriteIcon = card.querySelector('.game-favorite');
+                                    if (favoriteIcon) {
+                                        if (currentIsFavorite) {
+                                            favoriteIcon.classList.add('liked');
+                                            const svg = favoriteIcon.querySelector('svg');
+                                            if (svg) {
+                                                svg.setAttribute('fill', 'currentColor');
+                                                svg.removeAttribute('stroke');
+                                                svg.removeAttribute('stroke-width');
+                                            }
+                                        } else {
+                                            favoriteIcon.classList.remove('liked');
+                                            const svg = favoriteIcon.querySelector('svg');
+                                            if (svg) {
+                                                svg.setAttribute('fill', 'none');
+                                                svg.setAttribute('stroke', '#ef4444');
+                                                svg.setAttribute('stroke-width', '2');
+                                            }
+                                        }
+                                    }
+                                    
+                                    if (showFavoritesOnly) {
+                                        card.style.display = currentIsFavorite ? '' : 'none';
+                                    }
+                                });
+                                if (typeof window.showError === 'function') {
+                                    window.showError('Error al actualizar favoritos');
+                                } else {
+                                    alert('Error al actualizar favoritos');
+                                }
+                            });
+                        }
+                        
+                        // Filtro de favoritos (sin recargar página) - Variables globales
+                        window.showFavoritesOnly = false;
+                        window.searchFilter = '';
+                        
+                        const favoritesIcon = document.getElementById('favoritesIcon');
+                        if (favoritesIcon) {
+                            favoritesIcon.addEventListener('click', function() {
+                                window.showFavoritesOnly = !window.showFavoritesOnly;
+                                
+                                // Cambiar estilo del icono
+                                if (window.showFavoritesOnly) {
+                                    favoritesIcon.classList.add('active');
+                                    const svg = favoritesIcon.querySelector('svg');
+                                    if (svg) {
+                                        svg.setAttribute('fill', 'currentColor');
+                                    }
+                                } else {
+                                    favoritesIcon.classList.remove('active');
+                                    const svg = favoritesIcon.querySelector('svg');
+                                    if (svg) {
+                                        svg.setAttribute('fill', 'none');
+                                    }
+                                }
+                                
+                                if (window.filterGames) {
+                                    window.filterGames();
+                                }
+                            });
+                        }
+                        
+                        // Filtro de búsqueda
+                        const searchIcon = document.getElementById('searchIcon');
+                        const searchBox = document.getElementById('searchBox');
+                        const searchInput = document.getElementById('searchInput');
+                        
+                        if (searchIcon && searchBox) {
+                            searchIcon.addEventListener('click', function() {
+                                if (searchBox.style.display === 'none' || !searchBox.style.display) {
+                                    searchBox.style.display = 'block';
+                                    if (searchInput) {
+                                        searchInput.focus();
+                                    }
+                                } else {
+                                    searchBox.style.display = 'none';
+                                    window.searchFilter = '';
+                                    if (window.filterGames) {
+                                        window.filterGames();
+                                    }
+                                }
+                            });
+                        }
+                        
+                        if (searchInput) {
+                            searchInput.addEventListener('input', function(e) {
+                                window.searchFilter = e.target.value.trim().toLowerCase();
+                                if (window.filterGames) {
+                                    window.filterGames();
+                                }
+                            });
+                        }
+                        
+                        // Función de filtrado global
+                        window.filterGames = function() {
+                            const gameCards = document.querySelectorAll('.game-card');
+                            console.log('Filtrando juegos. Total:', gameCards.length, 'Favoritos:', window.showFavoritesOnly, 'Búsqueda:', window.searchFilter);
+                            
+                            gameCards.forEach(card => {
+                                const gameNameElement = card.querySelector('.game-name-overlay');
+                                const gameName = gameNameElement ? gameNameElement.textContent.toLowerCase().trim() : '';
+                                const isFavorite = card.getAttribute('data-is-favorite') === 'true';
+                                
+                                let shouldShow = true;
+                                
+                                // Aplicar filtro de favoritos
+                                if (window.showFavoritesOnly) {
+                                    shouldShow = isFavorite;
+                                }
+                                
+                                // Aplicar filtro de búsqueda
+                                if (window.searchFilter && !gameName.includes(window.searchFilter)) {
+                                    shouldShow = false;
+                                }
+                                
+                                // Aplicar el filtro
+                                if (shouldShow) {
+                                    card.style.display = '';
+                                } else {
+                                    card.style.display = 'none';
+                                }
+                            });
+                            
+                            // Reajustar visibilidad después del filtro (solo ocultar los que no caben)
+                            setTimeout(() => {
+                                if (window.hideOverflowCards) {
+                                    window.hideOverflowCards();
+                                }
+                            }, 100);
+                        }
+                        
+                        // Cerrar búsqueda al hacer clic fuera
+                        document.addEventListener('click', function(e) {
+                            if (!searchIcon.contains(e.target) && !searchBox.contains(e.target)) {
+                                searchBox.style.display = 'none';
+                            }
+                        });
+                        
+                        // Las funciones showSuccess, showError, etc. ya están definidas al inicio del body
+                        
+                        // Actualizar estado del usuario
+                        const statusSelect = document.getElementById('statusSelect');
+                        if (statusSelect) {
+                            statusSelect.addEventListener('change', function() {
+                                const newStatus = this.value;
+                                fetch('{{ path('app_profile_update_status') }}', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-Requested-With': 'XMLHttpRequest'
+                                    },
+                                    body: JSON.stringify({ status: newStatus })
+                                })
+                                .then(response => {
+                                    if (!response.ok) {
+                                        throw new Error('HTTP error! status: ' + response.status);
+                                    }
+                                    return response.json();
+                                })
+                                .then(data => {
+                                    console.log('Respuesta del servidor:', data);
+                                    if (data.success) {
+                                        // Actualizar badge visual
+                                        const statusBadge = document.getElementById('statusBadge');
+                                        if (statusBadge) {
+                                            statusBadge.className = 'badge bg-' + (newStatus === 'active' ? 'success' : (newStatus === 'away' ? 'warning' : 'secondary'));
+                                            statusBadge.textContent = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
+                                        }
+                                        // Mostrar notificación de éxito
+                                        if (typeof window.showSuccess === 'function') {
+                                            window.showSuccess('Estado actualizado correctamente');
+                                        } else {
+                                            console.error('showSuccess no disponible');
+                                            alert('Estado actualizado correctamente');
+                                        }
+                                    } else {
+                                        if (typeof window.showError === 'function') {
+                                            window.showError('Error al actualizar el estado: ' + (data.message || 'Error desconocido'));
+                                        } else {
+                                            alert('Error al actualizar el estado: ' + (data.message || 'Error desconocido'));
+                                        }
+                                        // Revertir selección
+                                        this.value = '{{ app.user.status }}';
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Error:', error);
+                                    if (typeof window.showError === 'function') {
+                                        window.showError('Error al actualizar el estado: ' + error.message);
+                                    } else {
+                                        alert('Error al actualizar el estado: ' + error.message);
+                                    }
+                                    this.value = '{{ app.user.status }}';
+                                });
+                            });
+                        }
+                        
+                        // Subir imagen de perfil
+                        const profileImageInput = document.getElementById('profileImageInput');
+                        if (profileImageInput) {
+                            profileImageInput.addEventListener('change', function(e) {
+                                const file = e.target.files[0];
+                                if (!file) return;
+                                
+                                // Validar tamaño (5MB)
+                                if (file.size > 5 * 1024 * 1024) {
+                                    if (typeof window.showError === 'function') {
+                                        window.showError('El archivo es demasiado grande. Máximo 5MB');
+                                    } else {
+                                        alert('El archivo es demasiado grande. Máximo 5MB');
+                                    }
+                                    this.value = '';
+                                    return;
+                                }
+                                
+                                // Validar tipo
+                                const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                                if (!allowedTypes.includes(file.type)) {
+                                    if (typeof window.showError === 'function') {
+                                        window.showError('Tipo de archivo no válido. Solo se permiten imágenes (JPEG, PNG, GIF, WebP)');
+                                    } else {
+                                        alert('Tipo de archivo no válido. Solo se permiten imágenes (JPEG, PNG, GIF, WebP)');
+                                    }
+                                    this.value = '';
+                                    return;
+                                }
+                                
+                                // Crear FormData
+                                const formData = new FormData();
+                                formData.append('profile_image', file);
+                                
+                                // Mostrar indicador de carga
+                                const profileImage = document.getElementById('profileImage');
+                                const originalSrc = profileImage.tagName === 'IMG' ? profileImage.src : null;
+                                if (profileImage.tagName === 'IMG') {
+                                    profileImage.style.opacity = '0.5';
+                                }
+                                
+                                // Subir archivo
+                                fetch('{{ path('app_profile_upload_image') }}', {
+                                    method: 'POST',
+                                    body: formData,
+                                    headers: {
+                                        'X-Requested-With': 'XMLHttpRequest'
+                                    }
+                                })
+                                .then(response => {
+                                    if (!response.ok) {
+                                        throw new Error('HTTP error! status: ' + response.status);
+                                    }
+                                    return response.json();
+                                })
+                                .then(data => {
+                                    if (profileImage.tagName === 'IMG') {
+                                        profileImage.style.opacity = '1';
+                                    }
+                                    console.log('Respuesta del servidor:', data);
+                                    if (data.success) {
+                                        // Actualizar imagen
+                                        const imagePath = data.image_path || data.image_path;
+                                        if (profileImage.tagName === 'IMG') {
+                                            profileImage.src = imagePath + '?t=' + new Date().getTime();
+                                        } else {
+                                            // Si es un div, convertirlo a img
+                                            const newImg = document.createElement('img');
+                                            newImg.id = 'profileImage';
+                                            newImg.className = 'rounded-circle mb-3';
+                                            newImg.style.cssText = 'width: 100px; height: 100px; object-fit: cover; cursor: pointer;';
+                                            newImg.src = imagePath + '?t=' + new Date().getTime();
+                                            newImg.alt = 'Avatar';
+                                            newImg.onerror = function() {
+                                                this.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%236c757d%22/%3E%3Ctext x=%2250%22 y=%2250%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22white%22 font-size=%2240%22%3E👤%3C/text%3E%3C/svg%3E';
+                                            };
+                                            profileImage.parentNode.replaceChild(newImg, profileImage);
+                                        }
+                                        // Mostrar notificación de éxito
+                                        if (typeof window.showSuccess === 'function') {
+                                            window.showSuccess('Imagen de perfil actualizada correctamente');
+                                        } else {
+                                            alert('Imagen de perfil actualizada correctamente');
+                                        }
+                                    } else {
+                                        if (typeof window.showError === 'function') {
+                                            window.showError('Error al subir la imagen: ' + (data.message || 'Error desconocido'));
+                                        } else {
+                                            alert('Error al subir la imagen: ' + (data.message || 'Error desconocido'));
+                                        }
+                                        if (profileImage.tagName === 'IMG' && originalSrc) {
+                                            profileImage.src = originalSrc;
+                                        }
+                                    }
+                                    this.value = '';
+                                })
+                                .catch(error => {
+                                    console.error('Error:', error);
+                                    if (profileImage.tagName === 'IMG') {
+                                        profileImage.style.opacity = '1';
+                                    }
+                                    if (typeof window.showError === 'function') {
+                                        window.showError('Error al subir la imagen: ' + error.message);
+                                    } else {
+                                        alert('Error al subir la imagen: ' + error.message);
+                                    }
+                                    this.value = '';
+                                });
+                            });
+                        }
+                        </script>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <p>No hay juegos disponibles en este momento. Los juegos se cargarán próximamente.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sección de Perfil (20%) -->
+        <div class="profile-section">
+            <div class="text-center mb-4">
+                <div style="position: relative; display: inline-block;">
+                    {% if app.user.profileImage %}
+                        <img src="/{{ app.user.profileImage }}" alt="Avatar" id="profileImage" class="rounded-circle mb-3" style="width: 100px; height: 100px; object-fit: cover; cursor: pointer;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%236c757d%22/%3E%3Ctext x=%2250%22 y=%2250%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22white%22 font-size=%2240%22%3E👤%3C/text%3E%3C/svg%3E';">
+                    {% else %}
+                        <div class="rounded-circle bg-secondary d-inline-flex align-items-center justify-content-center mb-3" id="profileImage" style="width: 100px; height: 100px; cursor: pointer;">
+                            <span style="font-size: 48px;">👤</span>
+                        </div>
+                    {% endif %}
+                    <input type="file" id="profileImageInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display: none;">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('profileImageInput').click();" style="position: absolute; bottom: 10px; right: 0; border-radius: 50%; width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" title="Cambiar imagen de perfil">
+                        <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                            <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                        </svg>
+                    </button>
+                </div>
+                <h3 class="mb-1" data-username>{{ app.user.username }}</h3>
+                <p class="text-muted small mb-3" data-email>{{ app.user.email }}</p>
+            </div>
+            
+            <div class="mb-4">
+                <h5 class="mb-3">Estado</h5>
+                <select id="statusSelect" class="form-select form-select-sm mb-2">
+                    <option value="active" {% if app.user.status == 'active' %}selected{% endif %}>Activo</option>
+                    <option value="away" {% if app.user.status == 'away' %}selected{% endif %}>Ausente</option>
+                    <option value="offline" {% if app.user.status == 'offline' %}selected{% endif %}>Desconectado</option>
+                </select>
+                <span id="statusBadge" class="badge bg-{{ app.user.status == 'active' ? 'success' : (app.user.status == 'away' ? 'warning' : 'secondary') }} mb-2" style="display: inline-block; margin-top: 5px;">
+                    {{ app.user.status|capitalize }}
+                </span>
+                {% if app.user.statusMessage %}
+                    <p class="small text-muted">{{ app.user.statusMessage }}</p>
+                {% endif %}
+            </div>
+            
+            <div class="mb-4">
+                <h5 class="mb-3">Visibilidad</h5>
+                <span class="badge bg-info">{{ app.user.visibility|capitalize }}</span>
+            </div>
+            
+            <div class="mb-4">
+                <h5 class="mb-3">Miembro desde</h5>
+                <p class="small text-muted">
+                    {{ app.user.createdAt ? app.user.createdAt|date('d/m/Y') : 'N/A' }}
+                </p>
+            </div>
+            
+            <div class="d-grid gap-2">
+                <button type="button" class="btn btn-outline-primary btn-sm" id="settingsBtn" onclick="if(window.openSettings){window.openSettings();}else{alert('Error: openSettings no está disponible');} return false;">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 5px; vertical-align: middle;">
+                        <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+                        <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.292-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.292c.415.764-.42 1.6-1.185 1.184l-.292-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.319c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.693-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.292A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115l.094-.319z"/>
+                    </svg>
+                    Configuración
+                </button>
+                <a href="{{ path('app_logout') }}" class="btn btn-outline-danger btn-sm">
+                    Cerrar Sesión
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de Configuración -->
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content" style="max-height: 90vh; display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+                <div class="modal-header" style="flex-shrink: 0; background: linear-gradient(135deg, #666F88 0%, #788199 100%); color: white; border: none;">
+                    <h5 class="modal-title fw-bold" id="settingsModalLabel">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 8px; vertical-align: middle;">
+                            <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+                            <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.292-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.292c.415.764-.42 1.6-1.185 1.184l-.292-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.319c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.693-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.292A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115l.094-.319z"/>
+                        </svg>
+                        Configuración
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 1.5rem;">
+                    <!-- Opciones Próximamente -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-12 col-md-6">
+                            <button type="button" class="btn btn-outline-secondary w-100 h-100 d-flex align-items-center justify-content-center p-3" id="toggleThemeBtn" style="min-height: 60px;">
+                                <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 8px;">
+                                    <path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                                    <path d="M13.997 8.5a5.5 5.5 0 0 0-11 0 5.5 5.5 0 0 0 11 0zm-1 0a4.5 4.5 0 0 1-9 0 4.5 4.5 0 0 1 9 0z"/>
+                                </svg>
+                                <div class="text-start">
+                                    <div class="fw-semibold" id="themeBtnText">{% if themeMode == 'dark' %}Modo Claro{% else %}Modo Oscuro{% endif %}</div>
+                                    <small class="text-muted">{% if themeMode == 'dark' %}Actualmente: Oscuro{% else %}Actualmente: Claro{% endif %}</small>
+                                </div>
+                            </button>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <button type="button" class="btn btn-outline-secondary w-100 h-100 d-flex align-items-center justify-content-center p-3" id="toggleLanguageBtn" style="min-height: 60px;">
+                                <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 8px;">
+                                    <path d="M10.478 1.647a.5.5 0 1 0-.956-.294l-4 13a.5.5 0 0 0 .956.294l4-13zM4.854 4.146a.5.5 0 0 1 0 .708L1.707 8l3.147 3.146a.5.5 0 0 1-.708.708l-3.5-3.5a.5.5 0 0 1 0-.708l3.5-3.5a.5.5 0 0 1 .708 0zm6.292 0a.5.5 0 0 0 0 .708L14.293 8l-3.147 3.146a.5.5 0 0 0 .708.708l3.5-3.5a.5.5 0 0 0 0-.708l-3.5-3.5a.5.5 0 0 0-.708 0z"/>
+                                </svg>
+                                <div class="text-start">
+                                    <div class="fw-semibold" id="languageBtnText">{% if language == 'en' %}Cambiar a Español{% else %}Cambiar a Inglés{% endif %}</div>
+                                    <small class="text-muted">{% if language == 'en' %}Actualmente: Inglés{% else %}Actualmente: Español{% endif %}</small>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Formularios con Acordeón -->
+                    <div class="accordion" id="settingsAccordion">
+                        <!-- Cambiar Nombre -->
+                        <div class="accordion-item border rounded mb-3" style="box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                            <h2 class="accordion-header" id="headingUsername">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseUsername" aria-expanded="false" aria-controls="collapseUsername" style="background-color: #f5f6f8; font-weight: 500;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 10px;">
+                                        <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/>
+                                    </svg>
+                                    <span class="fw-semibold">Cambiar Nombre de Usuario</span>
+                                </button>
+                            </h2>
+                            <div id="collapseUsername" class="accordion-collapse collapse" aria-labelledby="headingUsername" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body p-4">
+                                    <form id="changeUsernameForm">
+                                        <div class="mb-3">
+                                            <label for="currentPasswordUsername" class="form-label fw-semibold">Contraseña Actual</label>
+                                            <input type="password" class="form-control" id="currentPasswordUsername" placeholder="Ingresa tu contraseña actual" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="newUsername" class="form-label fw-semibold">Nuevo Nombre de Usuario</label>
+                                            <input type="text" class="form-control" id="newUsername" value="{{ app.user.username }}" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100" style="background: linear-gradient(135deg, #666F88 0%, #788199 100%); border: none; transition: transform 0.2s, box-shadow 0.2s;">
+                                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 5px; vertical-align: middle;">
+                                                <path d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+                                            </svg>
+                                            Cambiar Nombre
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Cambiar Correo -->
+                        <div class="accordion-item border rounded mb-3" style="box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                            <h2 class="accordion-header" id="headingEmail">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEmail" aria-expanded="false" aria-controls="collapseEmail" style="background-color: #f5f6f8; font-weight: 500;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 10px;">
+                                        <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4Zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2Zm13 2.383-4.708 2.825L15 11.105V5.383Zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741ZM1 11.105l4.708-2.897L1 5.383v5.722Z"/>
+                                    </svg>
+                                    <span class="fw-semibold">Cambiar Correo Electrónico</span>
+                                </button>
+                            </h2>
+                            <div id="collapseEmail" class="accordion-collapse collapse" aria-labelledby="headingEmail" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body p-4">
+                                    <form id="changeEmailForm">
+                                        <div class="mb-3">
+                                            <label for="currentPasswordEmail" class="form-label fw-semibold">Contraseña Actual</label>
+                                            <input type="password" class="form-control" id="currentPasswordEmail" placeholder="Ingresa tu contraseña actual" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="newEmail" class="form-label fw-semibold">Nuevo Correo</label>
+                                            <input type="email" class="form-control" id="newEmail" value="{{ app.user.email }}" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100">
+                                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 5px; vertical-align: middle;">
+                                                <path d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+                                            </svg>
+                                            Cambiar Correo
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Cambiar Contraseña -->
+                        <div class="accordion-item border rounded mb-3" style="box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                            <h2 class="accordion-header" id="headingPassword">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePassword" aria-expanded="false" aria-controls="collapsePassword" style="background-color: #f5f6f8; font-weight: 500;">
+                                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 10px;">
+                                        <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM5 8h6a1 1 0 0 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9a1 1 0 0 1 1z"/>
+                                    </svg>
+                                    <span class="fw-semibold">Cambiar Contraseña</span>
+                                </button>
+                            </h2>
+                            <div id="collapsePassword" class="accordion-collapse collapse" aria-labelledby="headingPassword" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body p-4">
+                                    <form id="changePasswordForm">
+                                        <div class="mb-3">
+                                            <label for="currentPassword" class="form-label fw-semibold">Contraseña Actual</label>
+                                            <input type="password" class="form-control" id="currentPassword" placeholder="Ingresa tu contraseña actual" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="newPassword" class="form-label fw-semibold">Nueva Contraseña</label>
+                                            <input type="password" class="form-control" id="newPassword" placeholder="Mínimo 6 caracteres" required>
+                                            <small class="form-text text-muted">La contraseña debe tener al menos 6 caracteres</small>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="confirmNewPassword" class="form-label fw-semibold">Confirmar Nueva Contraseña</label>
+                                            <input type="password" class="form-control" id="confirmNewPassword" placeholder="Repite la nueva contraseña" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100">
+                                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 5px; vertical-align: middle;">
+                                                <path d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+                                            </svg>
+                                            Cambiar Contraseña
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Las funciones openSettings y closeSettings ya están definidas al inicio del body
+        
+        // Añadir event listener para limpiar el backdrop cuando Bootstrap cierre el modal automáticamente
+        document.addEventListener('DOMContentLoaded', function() {
+            const modalElement = document.getElementById('settingsModal');
+            if (modalElement) {
+                // Listener para cuando el modal se oculta (evento de Bootstrap)
+                modalElement.addEventListener('hidden.bs.modal', function() {
+                    console.log('Modal cerrado por Bootstrap, limpiando backdrop');
+                    // Limpiar todos los backdrops que puedan quedar
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    backdrops.forEach(backdrop => {
+                        backdrop.remove();
+                    });
+                    // Restaurar el body
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = '';
+                    document.body.style.paddingRight = '';
+                });
+                
+                // También limpiar cuando se inicia el cierre
+                modalElement.addEventListener('hide.bs.modal', function() {
+                    console.log('Modal iniciando cierre');
+                });
+            }
+        });
+        
+        // Añadir event listener al botón de configuración (múltiples métodos para asegurar que funcione)
+        function initSettingsButton() {
+            const settingsBtn = document.getElementById('settingsBtn');
+            if (settingsBtn) {
+                console.log('Botón de configuración encontrado, añadiendo event listener');
+                // Remover listeners anteriores si existen
+                const newBtn = settingsBtn.cloneNode(true);
+                settingsBtn.parentNode.replaceChild(newBtn, settingsBtn);
+                
+                // Añadir nuevo listener
+                newBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Botón de configuración clickeado (event listener)');
+                    if (window.openSettings) {
+                        window.openSettings();
+                    } else {
+                        console.error('window.openSettings no está definido');
+                    }
+                });
+            } else {
+                console.error('Botón de configuración no encontrado');
+            }
+        }
+        
+        // Intentar inicializar inmediatamente
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initSettingsButton);
+        } else {
+            // DOM ya está listo
+            initSettingsButton();
+        }
+        
+        // También intentar después de un pequeño delay por si acaso
+        setTimeout(initSettingsButton, 100);
+        
+        // Cambiar nombre de usuario (usar event delegation para que funcione cuando el modal se abre)
+        document.addEventListener('submit', function(e) {
+            console.log('=== FORM SUBMIT DETECTED ===', e.target, e.target.id);
+            if (e.target && e.target.id === 'changeUsernameForm') {
+                console.log('=== CHANGE USERNAME FORM SUBMITTED ===');
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const currentPassword = document.getElementById('currentPasswordUsername');
+                const newUsernameInput = document.getElementById('newUsername');
+                
+                if (!currentPassword || !newUsernameInput) {
+                    console.error('Campos no encontrados:', {currentPassword, newUsernameInput});
+                    if (typeof window.showError === 'function') {
+                        window.showError('Error: No se encontraron los campos del formulario');
+                    } else {
+                        alert('Error: No se encontraron los campos del formulario');
+                    }
+                    return;
+                }
+                
+                const currentPasswordValue = currentPassword.value.trim();
+                const newUsernameValue = newUsernameInput.value.trim();
+                
+                console.log('Datos del formulario:', {
+                    currentPassword: currentPasswordValue ? '***' : 'VACÍO',
+                    newUsername: newUsernameValue
+                });
+                
+                // Validar que los campos estén llenos
+                if (!currentPasswordValue) {
+                    console.log('Validación fallida: contraseña vacía');
+                    if (typeof window.showError === 'function') {
+                        window.showError('Debes ingresar tu contraseña actual');
+                    } else {
+                        alert('Debes ingresar tu contraseña actual');
+                    }
+                    return;
+                }
+                
+                if (!newUsernameValue) {
+                    console.log('Validación fallida: nombre de usuario vacío');
+                    if (typeof window.showError === 'function') {
+                        window.showError('Debes ingresar un nuevo nombre de usuario');
+                    } else {
+                        alert('Debes ingresar un nuevo nombre de usuario');
+                    }
+                    return;
+                }
+                
+                if (newUsernameValue.length < 3) {
+                    console.log('Validación fallida: nombre de usuario muy corto');
+                    if (typeof window.showError === 'function') {
+                        window.showError('El nombre de usuario debe tener al menos 3 caracteres');
+                    } else {
+                        alert('El nombre de usuario debe tener al menos 3 caracteres');
+                    }
+                    return;
+                }
+                
+                console.log('Enviando petición a:', '{{ path('app_profile_change_username') }}');
+                console.log('Body:', {current_password: '***', new_username: newUsernameValue});
+            
+                fetch('{{ path('app_profile_change_username') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        current_password: currentPasswordValue,
+                        new_username: newUsernameValue
+                    })
+                })
+                .then(response => {
+                    console.log('=== RESPONSE RECIBIDA ===');
+                    console.log('Response status:', response.status);
+                    console.log('Response headers:', response.headers);
+                    if (!response.ok) {
+                        return response.json().then(data => {
+                            console.error('Error del servidor:', data);
+                            throw new Error(data.message || 'Error del servidor');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('=== DATA RECIBIDA ===');
+                    console.log('Response data:', data);
+                    if (data.success) {
+                        console.log('Éxito: Actualizando UI');
+                        console.log('Llamando a showSuccess...');
+                        console.log('showSuccess disponible?', typeof window.showSuccess);
+                        if (typeof window.showSuccess === 'function') {
+                            window.showSuccess('Nombre de usuario actualizado correctamente');
+                            console.log('showSuccess llamado');
+                        } else {
+                            console.error('ERROR: showSuccess no está disponible');
+                            alert('Nombre de usuario actualizado correctamente');
+                        }
+                        // Actualizar el nombre en el perfil sin recargar
+                        const usernameElements = document.querySelectorAll('[data-username]');
+                        console.log('Elementos encontrados con data-username:', usernameElements.length);
+                        usernameElements.forEach(el => {
+                            console.log('Actualizando elemento:', el, 'con:', newUsernameValue);
+                            el.textContent = newUsernameValue;
+                        });
+                        // Limpiar el formulario
+                        document.getElementById('changeUsernameForm').reset();
+                    } else {
+                        console.error('Error en la respuesta:', data);
+                        if (typeof window.showError === 'function') {
+                            window.showError(data.message || 'Error desconocido');
+                        } else {
+                            alert(data.message || 'Error desconocido');
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('=== ERROR EN FETCH ===');
+                    console.error('Error completo:', error);
+                    console.error('Error stack:', error.stack);
+                    if (typeof window.showError === 'function') {
+                        window.showError(error.message || 'Error al cambiar el nombre de usuario');
+                    } else {
+                        alert(error.message || 'Error al cambiar el nombre de usuario');
+                    }
+                });
+            }
+        });
+        
+        // Cambiar correo
+        document.addEventListener('submit', function(e) {
+            if (e.target && e.target.id === 'changeEmailForm') {
+                e.preventDefault();
+                const currentPassword = document.getElementById('currentPasswordEmail').value.trim();
+                const newEmail = document.getElementById('newEmail').value.trim();
+                
+                // Validar que los campos estén llenos
+                if (!currentPassword) {
+                    showError('Debes ingresar tu contraseña actual');
+                    return;
+                }
+                
+                if (!newEmail) {
+                    showError('Debes ingresar un nuevo correo electrónico');
+                    return;
+                }
+                
+                // Validar formato de email
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(newEmail)) {
+                    showError('El formato del correo electrónico no es válido');
+                    return;
+                }
+                
+                fetch('{{ path('app_profile_change_email') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_email: newEmail
+                    })
+                })
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    if (!response.ok) {
+                        return response.json().then(data => {
+                            throw new Error(data.message || 'Error del servidor');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Response data:', data);
+                    if (data.success) {
+                        showSuccess('Correo actualizado correctamente');
+                        // Actualizar el correo en el perfil sin recargar
+                        const emailElements = document.querySelectorAll('[data-email]');
+                        emailElements.forEach(el => {
+                            el.textContent = newEmail;
+                        });
+                        // Limpiar el formulario
+                        document.getElementById('changeEmailForm').reset();
+                    } else {
+                        showError(data.message || 'Error desconocido');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error completo:', error);
+                    showError(error.message || 'Error al cambiar el correo');
+                });
+            }
+        });
+        
+        // Cambiar contraseña
+        document.addEventListener('submit', function(e) {
+            if (e.target && e.target.id === 'changePasswordForm') {
+                e.preventDefault();
+                const currentPassword = document.getElementById('currentPassword').value.trim();
+                const newPassword = document.getElementById('newPassword').value;
+                const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+                
+                // Validar que los campos estén llenos
+                if (!currentPassword) {
+                    showError('Debes ingresar tu contraseña actual');
+                    return;
+                }
+                
+                if (!newPassword) {
+                    showError('Debes ingresar una nueva contraseña');
+                    return;
+                }
+                
+                if (!confirmNewPassword) {
+                    showError('Debes confirmar tu nueva contraseña');
+                    return;
+                }
+                
+                if (newPassword !== confirmNewPassword) {
+                    showError('Las contraseñas no coinciden');
+                    return;
+                }
+                
+                if (newPassword.length < 6) {
+                    showError('La contraseña debe tener al menos 6 caracteres');
+                    return;
+                }
+                
+                fetch('{{ path('app_profile_change_password') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword
+                    })
+                })
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    if (!response.ok) {
+                        return response.json().then(data => {
+                            throw new Error(data.message || 'Error del servidor');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Response data:', data);
+                    if (data.success) {
+                        showSuccess('Contraseña actualizada correctamente');
+                        // Limpiar el formulario
+                        document.getElementById('changePasswordForm').reset();
+                    } else {
+                        showError(data.message || 'Error desconocido');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error completo:', error);
+                    showError(error.message || 'Error al cambiar la contraseña');
+                });
+            }
+        });
+        
+        // Cambiar tema (modo oscuro/claro)
+        document.getElementById('toggleThemeBtn')?.addEventListener('click', function() {
+            const currentTheme = document.body.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
+            fetch('{{ path('app_profile_change_theme') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    theme_mode: newTheme
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Actualizar el atributo del body
+                    document.body.setAttribute('data-theme', newTheme);
+                    
+                    // Actualizar el texto del botón
+                    const themeBtnText = document.getElementById('themeBtnText');
+                    const themeBtn = document.getElementById('toggleThemeBtn');
+                    if (themeBtnText) {
+                        themeBtnText.textContent = newTheme === 'dark' ? 'Modo Claro' : 'Modo Oscuro';
+                    }
+                    if (themeBtn) {
+                        const small = themeBtn.querySelector('small');
+                        if (small) {
+                            small.textContent = newTheme === 'dark' ? 'Actualmente: Oscuro' : 'Actualmente: Claro';
+                        }
+                    }
+                    
+                    // Mostrar notificación de éxito
+                    showSuccess('Tema actualizado correctamente');
+                } else {
+                    showError(data.message || 'Error desconocido');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('Error al cambiar el tema');
+            });
+        });
+        
+        // Cambiar idioma
+        document.getElementById('toggleLanguageBtn')?.addEventListener('click', function() {
+            const currentLanguage = document.body.getAttribute('data-language') || 'es';
+            const newLanguage = currentLanguage === 'es' ? 'en' : 'es';
+            
+            fetch('{{ path('app_profile_change_language') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    language: newLanguage
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Actualizar el atributo del body
+                    document.body.setAttribute('data-language', newLanguage);
+                    
+                    // Actualizar el texto del botón
+                    const languageBtnText = document.getElementById('languageBtnText');
+                    const languageBtn = document.getElementById('toggleLanguageBtn');
+                    if (languageBtnText) {
+                        languageBtnText.textContent = newLanguage === 'en' ? 'Cambiar a Español' : 'Cambiar a Inglés';
+                    }
+                    if (languageBtn) {
+                        const small = languageBtn.querySelector('small');
+                        if (small) {
+                            small.textContent = newLanguage === 'en' ? 'Actualmente: Inglés' : 'Actualmente: Español';
+                        }
+                    }
+                    
+                    // Mostrar notificación de éxito
+                    showSuccess('Idioma actualizado correctamente');
+                } else {
+                    showError(data.message || 'Error desconocido');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('Error al cambiar el idioma');
+            });
+        });
+    </script>
+{% else %}
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-12 text-center">
+                <h1 class="display-4 mb-4">🎮 Plataforma de Juegos</h1>
+                <p class="lead mb-4">¡Únete y disfruta de nuestros juegos!</p>
+                <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                    <a href="{{ path('app_register') }}" class="btn btn-primary btn-lg me-md-2">Registrarse</a>
+                    <a href="{{ path('app_login') }}" class="btn btn-outline-primary btn-lg">Iniciar Sesión</a>
+                </div>
+            </div>
+        </div>
+</div>
+{% endif %}
 {% endblock %}
