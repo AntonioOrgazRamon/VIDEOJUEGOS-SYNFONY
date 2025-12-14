@@ -4,442 +4,28 @@
 
 {% block body %}
 <script>
-    // DEFINIR FUNCIONES GLOBALES INMEDIATAMENTE, ANTES DE CUALQUIER OTRA COSA
-    
-    // Funciones de notificación Toast (deben estar definidas ANTES de cualquier otro código)
-    window.showSuccess = function(message) {
-        showToast('success', 'Éxito', message);
-    };
-    
-    window.showError = function(message) {
-        showToast('error', 'Error', message);
-    };
-    
-    window.showInfo = function(message) {
-        showToast('info', 'Información', message);
-    };
-    
-    window.showWarning = function(message) {
-        showToast('warning', 'Advertencia', message);
-    };
-    
-    function showToast(type, title, message) {
-        console.log('=== showToast llamado ===', {type, title, message});
-        
-        // Asegurar que existe el contenedor
-        let container = document.querySelector('.toast-container');
-        if (!container) {
-            console.log('Creando contenedor de toast');
-            container = document.createElement('div');
-            container.className = 'toast-container';
-            document.body.appendChild(container);
-            console.log('Contenedor creado:', container);
-        }
-        
-        // Crear el toast
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        
-        // Iconos según el tipo (usando símbolos Unicode más grandes)
-        const icons = {
-            success: '✓',
-            error: '✕',
-            info: 'ℹ',
-            warning: '⚠'
-        };
-        
-        toast.innerHTML = `
-            <div class="toast-icon">${icons[type] || '•'}</div>
-            <div class="toast-content">
-                <div class="toast-title">${title}</div>
-                <div class="toast-message">${message}</div>
-            </div>
-            <button class="toast-close" onclick="this.parentElement.remove()" title="Cerrar">×</button>
-        `;
-        
-        console.log('Toast creado:', toast);
-        container.appendChild(toast);
-        console.log('Toast añadido al contenedor. Total toasts:', container.children.length);
-        
-        // Forzar reflow para que la animación funcione
-        toast.offsetHeight;
-        
-        // Auto-eliminar después de 5 segundos
-        setTimeout(() => {
-            if (toast.parentElement) {
-                toast.style.animation = 'slideOutRight 0.3s ease-out';
-                setTimeout(() => {
-                    if (toast.parentElement) {
-                        toast.remove();
-                    }
-                }, 300);
-            }
-        }, 5000);
-    }
-    
-    // DEFINIR openSettings INMEDIATAMENTE, ANTES DE CUALQUIER OTRA COSA
-    window.openSettings = function() {
-        console.log('=== openSettings EJECUTADO ===');
-        const modalElement = document.getElementById('settingsModal');
-        console.log('Modal encontrado:', modalElement);
-        if (!modalElement) {
-            console.error('ERROR: Modal no encontrado');
-            alert('Error: No se encontró el modal de configuración');
-            return;
-        }
-        try {
-            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-                console.log('Usando Bootstrap Modal');
-                const modal = new bootstrap.Modal(modalElement);
-                
-                // Añadir event listeners para limpiar cuando se cierre el modal
-                modalElement.addEventListener('hidden.bs.modal', function() {
-                    console.log('Modal cerrado, limpiando backdrop');
-                    // Asegurar que se elimine el backdrop y se restaure el body
-                    const backdrops = document.querySelectorAll('.modal-backdrop');
-                    backdrops.forEach(backdrop => backdrop.remove());
-                    document.body.classList.remove('modal-open');
-                    document.body.style.overflow = '';
-                    document.body.style.paddingRight = '';
-                });
-                
-                modal.show();
-            } else {
-                console.log('Usando fallback manual');
-                modalElement.style.display = 'block';
-                modalElement.classList.add('show');
-                document.body.classList.add('modal-open');
-                const backdrop = document.createElement('div');
-                backdrop.className = 'modal-backdrop fade show';
-                backdrop.id = 'modalBackdrop';
-                document.body.appendChild(backdrop);
-                backdrop.addEventListener('click', function() {
-                    window.closeSettings();
-                });
-            }
-        } catch (error) {
-            console.error('ERROR al abrir modal:', error);
-            alert('Error al abrir el modal: ' + error.message);
-        }
-    };
-    
-    // Función para cerrar el modal correctamente
-    window.closeSettings = function() {
-        const modalElement = document.getElementById('settingsModal');
-        if (modalElement) {
-            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
-                const modal = bootstrap.Modal.getInstance(modalElement);
-                if (modal) {
-                    modal.hide();
-                } else {
-                    // Si no hay instancia, crear una y cerrarla
-                    const newModal = new bootstrap.Modal(modalElement);
-                    newModal.hide();
-                }
-            } else {
-                // Fallback manual
-                modalElement.style.display = 'none';
-                modalElement.classList.remove('show');
-                document.body.classList.remove('modal-open');
-                const backdrop = document.getElementById('modalBackdrop');
-                if (backdrop) {
-                    backdrop.remove();
-                }
-            }
-            
-            // Limpiar cualquier backdrop que quede
-            const backdrops = document.querySelectorAll('.modal-backdrop');
-            backdrops.forEach(backdrop => backdrop.remove());
-            document.body.classList.remove('modal-open');
-            document.body.style.overflow = '';
-            document.body.style.paddingRight = '';
-        }
-    };
-    
     // Establecer tema e idioma al cargar la página
     document.body.setAttribute('data-theme', '{{ themeMode }}');
     document.body.setAttribute('data-language', '{{ language }}');
+    
+    // Esperar a que app.js se cargue antes de usar sus funciones
+    document.addEventListener('DOMContentLoaded', function() {
+        // Las funciones showSuccess, showError, openSettings, etc. están en app.js
+        // Si no están disponibles, usar fallbacks
+        if (typeof window.showSuccess === 'undefined') {
+            window.showSuccess = function(msg) { alert('✓ ' + msg); };
+        }
+        if (typeof window.showError === 'undefined') {
+            window.showError = function(msg) { alert('✕ ' + msg); };
+        }
+        if (typeof window.showInfo === 'undefined') {
+            window.showInfo = function(msg) { alert('ℹ ' + msg); };
+        }
+        if (typeof window.showWarning === 'undefined') {
+            window.showWarning = function(msg) { alert('⚠ ' + msg); };
+        }
+    });
 </script>
-<style>
-    * {
-        box-sizing: border-box;
-    }
-    
-    body {
-        margin: 0;
-        padding: 0;
-        height: 100vh;
-        overflow-x: hidden;
-        overflow-y: auto;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    }
-    
-    /* Sistema de Notificaciones Toast - Diseño Mejorado */
-    .toast-container {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 10000;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        max-width: 420px;
-        pointer-events: none;
-    }
-    
-    .toast {
-        background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
-        border-radius: 16px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08);
-        padding: 18px 20px;
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        min-width: 320px;
-        max-width: 420px;
-        animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        border-left: 5px solid;
-        pointer-events: auto;
-        position: relative;
-        overflow: hidden;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-    
-    .toast:hover {
-        transform: translateX(-4px);
-        box-shadow: 0 12px 40px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.1);
-    }
-    
-    .toast::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 5px;
-        height: 100%;
-        background: inherit;
-    }
-    
-    .toast.success {
-        border-left-color: #10b981;
-        background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
-    }
-    
-    .toast.success::before {
-        background: linear-gradient(180deg, #10b981 0%, #059669 100%);
-    }
-    
-    .toast.error {
-        border-left-color: #ef4444;
-        background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
-    }
-    
-    .toast.error::before {
-        background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
-    }
-    
-    .toast.info {
-        border-left-color: #3b82f6;
-        background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
-    }
-    
-    .toast.info::before {
-        background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
-    }
-    
-    .toast.warning {
-        border-left-color: #f59e0b;
-        background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
-    }
-    
-    .toast.warning::before {
-        background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
-    }
-    
-    .toast-icon {
-        width: 40px;
-        height: 40px;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        font-size: 20px;
-        font-weight: bold;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    
-    .toast.success .toast-icon {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        color: white;
-    }
-    
-    .toast.error .toast-icon {
-        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-        color: white;
-    }
-    
-    .toast.info .toast-icon {
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-        color: white;
-    }
-    
-    .toast.warning .toast-icon {
-        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-        color: white;
-    }
-    
-    .toast-content {
-        flex: 1;
-        min-width: 0;
-    }
-    
-    .toast-title {
-        font-weight: 700;
-        font-size: 15px;
-        margin-bottom: 4px;
-        color: #666F88;
-        letter-spacing: -0.01em;
-    }
-    
-    .toast-message {
-        font-size: 14px;
-        color: #788199;
-        line-height: 1.5;
-        word-wrap: break-word;
-    }
-    
-    .toast-close {
-        background: rgba(102, 111, 136, 0.1);
-        border: none;
-        cursor: pointer;
-        padding: 6px;
-        color: #8990a2;
-        font-size: 20px;
-        line-height: 1;
-        border-radius: 50%;
-        width: 28px;
-        height: 28px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s;
-        flex-shrink: 0;
-    }
-    
-    .toast-close:hover {
-        background: rgba(102, 111, 136, 0.2);
-        color: #666F88;
-        transform: rotate(90deg);
-    }
-    
-    @keyframes slideInRight {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    }
-    
-    @keyframes slideOutRight {
-        from {
-            transform: translateX(0);
-            opacity: 1;
-        }
-        to {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-    }
-    
-    .toast.hiding {
-        animation: slideOutRight 0.3s ease-out forwards;
-    }
-    
-    .main-layout {
-        display: flex;
-        height: 100vh;
-        width: 100%;
-    }
-    
-    .games-section {
-        width: 80%;
-        height: 100vh;
-        overflow: visible;
-        background: #f5f6f8;
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .header {
-        background: #fff;
-        padding: 15px 30px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        z-index: 100;
-        position: relative;
-    }
-    
-    .logo {
-        font-size: 28px;
-        font-weight: bold;
-        color: #666F88;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    
-    .logo-circle {
-        width: 32px;
-        height: 32px;
-        background: #788199;
-        border-radius: 50%;
-        display: inline-block;
-    }
-    
-    .header-actions {
-        display: flex;
-        gap: 15px;
-        align-items: center;
-    }
-    
-    .header-icon {
-        width: 32px;
-        height: 32px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        transition: background 0.2s;
-    }
-    
-    .header-icon:hover {
-        background: #f5f6f8;
-    }
-    
-    .games-container {
-        flex: 1;
-        padding: 20px 30px;
-        overflow: visible;
-        height: calc(100vh - 80px);
-        position: relative;
-    }
-    
-    .profile-section {
-        width: 20%;
-        height: 100vh;
-        background: #fff;
-        box-shadow: -2px 0 10px rgba(0,0,0,0.1);
-        padding: 20px;
-        overflow-y: auto;
-    }
-</style>
 
 {% if app.user %}
     <div class="main-layout">
@@ -454,399 +40,24 @@
                     </div>
                 </a>
                 <div class="header-actions">
-                    <div class="header-icon search-icon" title="Buscar" id="searchIcon">
-                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button class="header-icon search-icon" title="Buscar" id="searchIcon" aria-label="Buscar juegos" type="button">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
-                    </div>
-                    <div class="header-icon favorites-icon" title="Favoritos" id="favoritesIcon">
-                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    </button>
+                    <button class="header-icon favorites-icon" title="Favoritos" id="favoritesIcon" aria-label="Mostrar solo favoritos" type="button">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
                         </svg>
-                    </div>
+                    </button>
                 </div>
-                <div class="search-box" id="searchBox" style="display: none;">
-                    <input type="text" id="searchInput" placeholder="Buscar por nombre..." value="" style="padding: 8px 12px; border: 1px solid #b5bac9; border-radius: 6px; width: 300px; font-size: 14px;">
+                <div class="search-box" id="searchBox" style="display: none;" role="search">
+                    <input type="text" id="searchInput" placeholder="Buscar por nombre..." value="" aria-label="Buscar juegos" style="padding: 8px 12px; border: 1px solid #b5bac9; border-radius: 6px; width: 300px; font-size: 14px;">
                 </div>
             </div>
             
             <!-- Contenedor de Juegos -->
             <div class="games-container">
-                <style>
-                .games-grid {
-                    display: grid;
-                    grid-template-columns: repeat(12, 1fr);
-                    grid-auto-rows: minmax(80px, auto);
-                    grid-auto-flow: dense;
-                    gap: 15px;
-                    padding: 0;
-                    overflow: visible;
-                }
-                
-                .game-card {
-                    position: relative;
-                    border-radius: 12px;
-                    overflow: visible;
-                    cursor: pointer;
-                    transition: transform 0.2s ease, box-shadow 0.2s ease;
-                    background: #fff;
-                    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-                    aspect-ratio: 1;
-                    user-select: none;
-                    -webkit-user-select: none;
-                    -moz-user-select: none;
-                    -ms-user-select: none;
-                }
-                
-                .game-card .game-icon,
-                .game-card .game-placeholder {
-                    overflow: hidden;
-                    border-radius: 12px;
-                    width: 100%;
-                    height: 100%;
-                }
-                
-                /* Dos pequeños arriba a la derecha */
-                .game-card:not(.split-card):nth-child(1) {
-                    grid-column: 11;
-                    grid-row: 1;
-                }
-                .game-card:not(.split-card):nth-child(2) {
-                    grid-column: 12;
-                    grid-row: 1;
-                }
-                
-                /* Grandes (3x3) - menos frecuentes */
-                .game-card:not(.split-card):nth-child(15n+1),
-                .game-card:not(.split-card):nth-child(15n+2) {
-                    grid-column: span 3;
-                    grid-row: span 3;
-                }
-                
-                /* Medianos (2x2) - menos frecuentes */
-                .game-card:not(.split-card):nth-child(15n+6),
-                .game-card:not(.split-card):nth-child(15n+11),
-                .game-card:not(.split-card):nth-child(15n+3) {
-                    grid-column: span 2;
-                    grid-row: span 2;
-                }
-                
-                /* Pequeños (1x1) - la mayoría */
-                .game-card:not(.split-card):nth-child(15n+4),
-                .game-card:not(.split-card):nth-child(15n+5),
-                .game-card:not(.split-card):nth-child(15n+7),
-                .game-card:not(.split-card):nth-child(15n+8),
-                .game-card:not(.split-card):nth-child(15n+9),
-                .game-card:not(.split-card):nth-child(15n+10),
-                .game-card:not(.split-card):nth-child(15n+12),
-                .game-card:not(.split-card):nth-child(15n+13),
-                .game-card:not(.split-card):nth-child(15n+14),
-                .game-card:not(.split-card):nth-child(15n+15) {
-                    grid-column: span 1;
-                    grid-row: span 1;
-                }
-                
-                /* Los cuadrados divididos siempre son pequeños */
-                .game-card.split-card {
-                    grid-column: span 1 !important;
-                    grid-row: span 1 !important;
-                }
-                
-                .game-card:hover {
-                    transform: translateY(-4px) scale(1.05);
-                    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-                    z-index: 1000;
-                    position: relative;
-                    will-change: transform;
-                }
-                
-                /* Asegurar que el contenedor no corte los elementos en hover */
-                .games-container {
-                    contain: none;
-                }
-                
-                .game-icon {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                    display: block;
-                    border-radius: 12px;
-                    user-select: none;
-                    -webkit-user-select: none;
-                    -moz-user-select: none;
-                    -ms-user-select: none;
-                    pointer-events: none;
-                }
-                
-                .game-card > * {
-                    border-radius: 12px;
-                }
-                
-                .game-name-overlay {
-                    position: absolute;
-                    bottom: 0;
-                    left: 0;
-                    right: 0;
-                    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
-                    color: white;
-                    padding: 10px 8px 8px;
-                    text-align: center;
-                    font-weight: 600;
-                    font-size: 13px;
-                    opacity: 0;
-                    transform: translateY(5px);
-                    transition: opacity 0.2s ease, transform 0.2s ease;
-                    user-select: none;
-                    -webkit-user-select: none;
-                    -moz-user-select: none;
-                    -ms-user-select: none;
-                    pointer-events: none;
-                }
-                
-                .game-card:hover .game-name-overlay {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-                
-                .game-favorite {
-                    position: absolute;
-                    top: 8px;
-                    right: 8px;
-                    width: 24px;
-                    height: 24px;
-                    background: rgba(255,255,255,0.9);
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    opacity: 0;
-                    transition: opacity 0.2s ease;
-                    cursor: pointer;
-                    z-index: 10;
-                }
-                
-                .game-card:hover .game-favorite {
-                    opacity: 1;
-                }
-                
-                .game-favorite.liked {
-                    opacity: 1;
-                }
-                
-                .game-favorite svg {
-                    width: 14px;
-                    height: 14px;
-                    fill: #ef4444;
-                }
-                
-                .game-favorite:not(.liked) svg {
-                    fill: none;
-                    stroke: #ef4444;
-                    stroke-width: 2;
-                }
-                
-                .header-icon.active {
-                    background: #fef2f2;
-                }
-                
-                .header-icon.active svg {
-                    fill: #ef4444;
-                    stroke: #ef4444;
-                }
-                
-                .search-box {
-                    position: absolute;
-                    top: 100%;
-                    right: 30px;
-                    margin-top: 10px;
-                    z-index: 1000;
-                }
-                
-                .game-placeholder {
-                    width: 100%;
-                    height: 100%;
-                    background: linear-gradient(135deg, #666F88 0%, #788199 100%);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 48px;
-                    user-select: none;
-                    -webkit-user-select: none;
-                    -moz-user-select: none;
-                    -ms-user-select: none;
-                    pointer-events: none;
-                }
-                
-                /* Estilos para juegos bloqueados */
-                .game-disabled {
-                    opacity: 0.5;
-                    filter: grayscale(100%);
-                    position: relative;
-                }
-                
-                /* Los usuarios normales no pueden hacer clic en juegos bloqueados */
-                .game-disabled:not([data-admin-context]) {
-                    pointer-events: none;
-                }
-                
-                /* Los admins pueden hacer clic derecho en juegos bloqueados */
-                .game-disabled[data-admin-context] {
-                    pointer-events: auto;
-                    cursor: context-menu;
-                }
-                
-                /* Los elementos internos no deben capturar eventos, pero el card sí */
-                .game-disabled[data-admin-context] > * {
-                    pointer-events: none;
-                }
-                
-                /* El overlay de bloqueado tampoco debe capturar eventos */
-                .game-disabled[data-admin-context] .game-blocked-overlay {
-                    pointer-events: none;
-                }
-                
-                .game-disabled .game-blocked-overlay {
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: rgba(0, 0, 0, 0.6);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    z-index: 100;
-                    pointer-events: none;
-                }
-                
-                .game-disabled .game-blocked-text {
-                    color: white;
-                    font-size: 24px;
-                    font-weight: bold;
-                    text-transform: uppercase;
-                    letter-spacing: 3px;
-                    transform: rotate(-45deg);
-                    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
-                    animation: blockedPulse 2s ease-in-out infinite;
-                }
-                
-                @keyframes blockedPulse {
-                    0%, 100% {
-                        opacity: 0.8;
-                    }
-                    50% {
-                        opacity: 1;
-                    }
-                }
-                
-                /* Menú contextual de admin */
-                .admin-context-menu {
-                    position: fixed;
-                    background: white;
-                    border: 1px solid #b5bac9;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                    padding: 8px 0;
-                    z-index: 10000;
-                    min-width: 200px;
-                    display: none;
-                }
-                
-                .admin-context-menu-item {
-                    padding: 10px 16px;
-                    cursor: pointer;
-                    transition: background-color 0.2s;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    font-size: 14px;
-                }
-                
-                .admin-context-menu-item:hover {
-                    background-color: #f5f5f5;
-                }
-                
-                .admin-context-menu-item.danger {
-                    color: #dc3545;
-                }
-                
-                .admin-context-menu-item.danger:hover {
-                    background-color: #fee;
-                }
-                
-                @media (max-width: 992px) {
-                    .main-layout {
-                        flex-direction: column;
-                    }
-                    .games-section {
-                        width: 100%;
-                        height: 85vh;
-                    }
-                    .profile-section {
-                        width: 100%;
-                        height: 15vh;
-                        display: flex;
-                        align-items: center;
-                        padding: 10px 20px;
-                    }
-                    .profile-section > div {
-                        display: flex;
-                        align-items: center;
-                        gap: 20px;
-                        width: 100%;
-                    }
-                    .profile-section .text-center {
-                        text-align: left !important;
-                        margin: 0;
-                    }
-                    .games-grid {
-                        grid-template-columns: repeat(8, 1fr);
-                        grid-auto-flow: dense;
-                    }
-                    .game-card:nth-child(10n+1),
-                    .game-card:nth-child(10n+6) {
-                        grid-column: span 3;
-                        grid-row: span 3;
-                    }
-                    .game-card:nth-child(10n+2),
-                    .game-card:nth-child(10n+3),
-                    .game-card:nth-child(10n+4),
-                    .game-card:nth-child(10n+5),
-                    .game-card:nth-child(10n+7),
-                    .game-card:nth-child(10n+8) {
-                        grid-column: span 2;
-                        grid-row: span 2;
-                    }
-                    .game-card:nth-child(10n+9),
-                    .game-card:nth-child(10n+10) {
-                        grid-column: span 1;
-                        grid-row: span 1;
-                    }
-                }
-                
-                @media (max-width: 768px) {
-                    .games-grid {
-                        grid-template-columns: repeat(6, 1fr);
-                        gap: 10px;
-                    }
-                    .game-card:nth-child(n) {
-                        grid-column: span 2;
-                        grid-row: span 2;
-                    }
-                }
-                
-                @media (max-width: 480px) {
-                    .games-grid {
-                        grid-template-columns: repeat(4, 1fr);
-                        gap: 8px;
-                    }
-                    .game-card:nth-child(n) {
-                        grid-column: span 2;
-                        grid-row: span 2;
-                    }
-                }
-                </style>
-                
                 <div class="games-grid" id="gamesGrid">
                     {% if gamesToDisplay|length > 0 %}
                         {% for item in gamesToDisplay %}
@@ -859,9 +70,13 @@
                                      data-game-id="{{ currentGame.id }}" 
                                      data-is-favorite="{% if currentGame.id in likedGameIds %}true{% else %}false{% endif %}"
                                      data-is-active="{{ currentGame.isActive ? 'true' : 'false' }}"
-                                     {% if isAdmin %}data-admin-context="true"{% endif %}>
+                                     {% if isAdmin %}data-admin-context="true"{% endif %}
+                                     role="button"
+                                     tabindex="0"
+                                     aria-label="{{ currentGame.name }}{% if not currentGame.isActive %} (Bloqueado){% endif %}"
+                                     {% if not currentGame.isActive and not isAdmin %}aria-disabled="true"{% endif %}>
                                     {% if currentGame.icon %}
-                                        <img src="/{{ currentGame.icon }}" class="game-icon" alt="{{ currentGame.name }}" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                        <img data-src="/{{ currentGame.icon }}" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3C/svg%3E" class="game-icon" alt="{{ currentGame.name }}" loading="lazy" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                         <div class="game-placeholder" style="display: none;"><span>🎮</span></div>
                                     {% else %}
                                         <div class="game-placeholder"><span>🎮</span></div>
@@ -872,13 +87,15 @@
                                         <div class="game-blocked-text">BLOQUEADO</div>
 </div>
                                     {% endif %}
-                                    <div class="game-favorite {% if currentGame.id in likedGameIds %}liked{% endif %}" 
+                                    <button class="game-favorite {% if currentGame.id in likedGameIds %}liked{% endif %}" 
                                          data-game-id="{{ currentGame.id }}"
-                                         onclick="event.stopPropagation(); toggleLike({{ currentGame.id }}, this);">
+                                         onclick="event.stopPropagation(); toggleLike({{ currentGame.id }}, this);"
+                                         aria-label="{% if currentGame.id in likedGameIds %}Quitar de favoritos{% else %}Añadir a favoritos{% endif %}"
+                                         type="button">
                                         <svg viewBox="0 0 24 24" fill="currentColor">
                                             <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
                                         </svg>
-                                    </div>
+                                    </button>
                                 </div>
                             {% else %}
                                 {# Juego normal #}
@@ -886,9 +103,13 @@
                                      data-game-id="{{ currentGame.id }}" 
                                      data-is-favorite="{% if currentGame.id in likedGameIds %}true{% else %}false{% endif %}"
                                      data-is-active="{{ currentGame.isActive ? 'true' : 'false' }}"
-                                     {% if isAdmin %}data-admin-context="true"{% endif %}>
+                                     {% if isAdmin %}data-admin-context="true"{% endif %}
+                                     role="button"
+                                     tabindex="0"
+                                     aria-label="{{ currentGame.name }}{% if not currentGame.isActive %} (Bloqueado){% endif %}"
+                                     {% if not currentGame.isActive and not isAdmin %}aria-disabled="true"{% endif %}>
                                     {% if currentGame.icon %}
-                                        <img src="/{{ currentGame.icon }}" class="game-icon" alt="{{ currentGame.name }}" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                        <img data-src="/{{ currentGame.icon }}" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3C/svg%3E" class="game-icon" alt="{{ currentGame.name }}" loading="lazy" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                         <div class="game-placeholder" style="display: none;"><span>🎮</span></div>
                                     {% else %}
                                         <div class="game-placeholder"><span>🎮</span></div>
@@ -899,13 +120,15 @@
                                         <div class="game-blocked-text">BLOQUEADO</div>
                                     </div>
                                     {% endif %}
-                                    <div class="game-favorite {% if currentGame.id in likedGameIds %}liked{% endif %}" 
+                                    <button class="game-favorite {% if currentGame.id in likedGameIds %}liked{% endif %}" 
                                          data-game-id="{{ currentGame.id }}"
-                                         onclick="event.stopPropagation(); toggleLike({{ currentGame.id }}, this);">
+                                         onclick="event.stopPropagation(); toggleLike({{ currentGame.id }}, this);"
+                                         aria-label="{% if currentGame.id in likedGameIds %}Quitar de favoritos{% else %}Añadir a favoritos{% endif %}"
+                                         type="button">
                                         <svg viewBox="0 0 24 24" fill="currentColor">
                                             <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
                                         </svg>
-                                    </div>
+                                    </button>
                                 </div>
                             {% endif %}
                         {% endfor %}
@@ -968,7 +191,12 @@
                         // Verificar estado de juegos en tiempo real (polling cada 5 segundos)
                         // Activo para TODOS los usuarios (admin y normales) para ver cambios en tiempo real
                         let gamesStatusCheck = setInterval(function() {
-                            fetch('/admin/games/status', {
+                            // Para polling, NO usar cache (necesitamos datos en tiempo real)
+                            const fetchFn = (typeof window.fetchWithRetry === 'function') 
+                                ? window.fetchWithRetry 
+                                : fetch;
+                            
+                            fetchFn('/admin/games/status', {
                                 method: 'GET',
                                 headers: {
                                     'X-Requested-With': 'XMLHttpRequest'
@@ -1022,14 +250,18 @@
                                 }
                             })
                             .catch(error => {
-                                console.error('Error al verificar estado de juegos:', error);
+                                if (typeof window.debugError === 'function') {
+                                    window.debugError('Error al verificar estado de juegos:', error);
+                                }
                             });
-                        }, 3000); // Verificar cada 3 segundos para respuesta más rápida
+                        }, 5000); // Verificar cada 5 segundos (optimizado para reducir carga)
                         
                         // Menú contextual para admin
                         {% if isAdmin %}
                         window.showAdminMenu = function(event, gameId, gameName, isActive) {
-                            console.log('showAdminMenu llamado', gameId, gameName, isActive);
+                            if (typeof window.debugLog === 'function') {
+                                window.debugLog('showAdminMenu llamado', gameId, gameName, isActive);
+                            }
                             
                             // Prevenir el menú contextual por defecto
                             event.preventDefault();
@@ -1087,18 +319,33 @@
                         };
                         
                         window.toggleGameActive = function(gameId) {
-                            fetch('/admin/game/toggle-active/' + gameId, {
+                            // Mostrar loading state
+                            const gameCards = document.querySelectorAll(`.game-card[data-game-id="${gameId}"]`);
+                            gameCards.forEach(card => {
+                                card.style.opacity = '0.6';
+                                card.style.pointerEvents = 'none';
+                            });
+                            
+                            const fetchFn = (typeof window.fetchWithRetry === 'function') 
+                                ? window.fetchWithRetry 
+                                : fetch;
+                            
+                            fetchFn('/admin/game/toggle-active/' + gameId, {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
                                     'X-Requested-With': 'XMLHttpRequest'
                                 }
                             })
-                            .then(response => response.json())
                             .then(data => {
+                                // Restaurar estado visual
+                                gameCards.forEach(card => {
+                                    card.style.opacity = '';
+                                    card.style.pointerEvents = '';
+                                });
+                                
                                 if (data.success) {
                                     // Actualizar todos los cards del juego
-                                    const gameCards = document.querySelectorAll(`.game-card[data-game-id="${gameId}"]`);
                                     gameCards.forEach(card => {
                                         card.setAttribute('data-is-active', data.isActive ? 'true' : 'false');
                                         
@@ -1138,7 +385,15 @@
                                 }
                             })
                             .catch(error => {
-                                console.error('Error:', error);
+                                // Restaurar estado visual
+                                gameCards.forEach(card => {
+                                    card.style.opacity = '';
+                                    card.style.pointerEvents = '';
+                                });
+                                
+                                if (typeof window.debugError === 'function') {
+                                    window.debugError('Error:', error);
+                                }
                                 if (typeof window.showError === 'function') {
                                     window.showError('Error al cambiar el estado del juego');
                                 } else {
@@ -1189,7 +444,9 @@
                                         const isActive = gameCard.getAttribute('data-is-active') === 'true';
                                         const gameName = gameCard.querySelector('.game-name-overlay')?.textContent || 'Juego';
                                         
-                                        console.log('Clic derecho detectado en juego:', gameId, 'Activo:', isActive, 'Card:', gameCard);
+                                        if (typeof window.debugLog === 'function') {
+                                            window.debugLog('Clic derecho detectado en juego:', gameId, 'Activo:', isActive);
+                                        }
                                         
                                         if (gameId && window.showAdminMenu) {
                                             window.showAdminMenu(e, gameId, gameName, isActive);
@@ -1259,7 +516,7 @@
                         });
                         
                         // Toggle like con actualización optimista (instantánea)
-                        function toggleLike(gameId, element) {
+                        window.toggleLike = function(gameId, element) {
                             // Obtener el estado actual
                             const gameCard = element.closest('.game-card');
                             const currentIsFavorite = gameCard ? gameCard.getAttribute('data-is-favorite') === 'true' : false;
@@ -1303,14 +560,17 @@
                             });
                             
                             // Hacer la llamada al servidor
-                            fetch('/game/toggle-like/' + gameId, {
+                            const fetchFn = (typeof window.fetchWithRetry === 'function') 
+                                ? window.fetchWithRetry 
+                                : fetch;
+                            
+                            fetchFn('/game/toggle-like/' + gameId, {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
                                     'X-Requested-With': 'XMLHttpRequest'
                                 }
                             })
-                            .then(response => response.json())
                             .then(data => {
                                 if (data.success) {
                                     // Confirmar que el estado es correcto (ya está actualizado)
@@ -1478,18 +738,28 @@
                         }
                         
                         if (searchInput) {
-                            searchInput.addEventListener('input', function(e) {
+                            // Aplicar debounce a la búsqueda (300ms)
+                            const debouncedFilter = window.debounce ? window.debounce(function(e) {
                                 window.searchFilter = e.target.value.trim().toLowerCase();
                                 if (window.filterGames) {
                                     window.filterGames();
                                 }
-                            });
+                            }, 300) : function(e) {
+                                window.searchFilter = e.target.value.trim().toLowerCase();
+                                if (window.filterGames) {
+                                    window.filterGames();
+                                }
+                            };
+                            
+                            searchInput.addEventListener('input', debouncedFilter);
                         }
                         
                         // Función de filtrado global
                         window.filterGames = function() {
                             const gameCards = document.querySelectorAll('.game-card');
-                            console.log('Filtrando juegos. Total:', gameCards.length, 'Favoritos:', window.showFavoritesOnly, 'Búsqueda:', window.searchFilter);
+                            if (typeof window.debugLog === 'function') {
+                                window.debugLog('Filtrando juegos. Total:', gameCards.length, 'Favoritos:', window.showFavoritesOnly, 'Búsqueda:', window.searchFilter);
+                            }
                             
                             gameCards.forEach(card => {
                                 const gameNameElement = card.querySelector('.game-name-overlay');
@@ -1520,6 +790,10 @@
                             setTimeout(() => {
                                 if (window.hideOverflowCards) {
                                     window.hideOverflowCards();
+                                }
+                                // Reinicializar lazy loading para imágenes que ahora son visibles
+                                if (typeof window.refreshLazyLoading === 'function') {
+                                    window.refreshLazyLoading();
                                 }
                             }, 100);
                         }
@@ -1553,7 +827,9 @@
                                     return response.json();
                                 })
                                 .then(data => {
-                                    console.log('Respuesta del servidor:', data);
+                                    if (typeof window.debugLog === 'function') {
+                                        window.debugLog('Respuesta del servidor:', data);
+                                    }
                                     if (data.success) {
                                         // Actualizar badge visual
                                         const statusBadge = document.getElementById('statusBadge');
@@ -1579,7 +855,9 @@
                                     }
                                 })
                                 .catch(error => {
-                                    console.error('Error:', error);
+                                    if (typeof window.debugError === 'function') {
+                                        window.debugError('Error:', error);
+                                    }
                                     if (typeof window.showError === 'function') {
                                         window.showError('Error al actualizar el estado: ' + error.message);
                                     } else {
@@ -1687,7 +965,9 @@
                                     this.value = '';
                                 })
                                 .catch(error => {
-                                    console.error('Error:', error);
+                                    if (typeof window.debugError === 'function') {
+                                        window.debugError('Error:', error);
+                                    }
                                     if (profileImage.tagName === 'IMG') {
                                         profileImage.style.opacity = '1';
                                     }
@@ -1715,7 +995,7 @@
             <div class="text-center mb-4">
                 <div style="position: relative; display: inline-block;">
                     {% if app.user.profileImage %}
-                        <img src="/{{ app.user.profileImage }}" alt="Avatar" id="profileImage" class="rounded-circle mb-3" style="width: 100px; height: 100px; object-fit: cover; cursor: pointer;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%236c757d%22/%3E%3Ctext x=%2250%22 y=%2250%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22white%22 font-size=%2240%22%3E👤%3C/text%3E%3C/svg%3E';">
+                        <img src="/{{ app.user.profileImage }}" alt="Avatar" id="profileImage" class="rounded-circle mb-3" style="width: 100px; height: 100px; object-fit: cover; cursor: pointer; transition: opacity 0.3s ease;" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%236c757d%22/%3E%3Ctext x=%2250%22 y=%2250%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22white%22 font-size=%2240%22%3E👤%3C/text%3E%3C/svg%3E';">
                     {% else %}
                         <div class="rounded-circle bg-secondary d-inline-flex align-items-center justify-content-center mb-3" id="profileImage" style="width: 100px; height: 100px; cursor: pointer;">
                             <span style="font-size: 48px;">👤</span>
@@ -1934,7 +1214,9 @@
             if (modalElement) {
                 // Listener para cuando el modal se oculta (evento de Bootstrap)
                 modalElement.addEventListener('hidden.bs.modal', function() {
-                    console.log('Modal cerrado por Bootstrap, limpiando backdrop');
+                    if (typeof window.debugLog === 'function') {
+                        window.debugLog('Modal cerrado por Bootstrap, limpiando backdrop');
+                    }
                     // Limpiar todos los backdrops que puedan quedar
                     const backdrops = document.querySelectorAll('.modal-backdrop');
                     backdrops.forEach(backdrop => {
@@ -1948,7 +1230,9 @@
                 
                 // También limpiar cuando se inicia el cierre
                 modalElement.addEventListener('hide.bs.modal', function() {
-                    console.log('Modal iniciando cierre');
+                    if (typeof window.debugLog === 'function') {
+                        window.debugLog('Modal iniciando cierre');
+                    }
                 });
             }
         });
@@ -1957,7 +1241,9 @@
         function initSettingsButton() {
             const settingsBtn = document.getElementById('settingsBtn');
             if (settingsBtn) {
-                console.log('Botón de configuración encontrado, añadiendo event listener');
+                if (typeof window.debugLog === 'function') {
+                    window.debugLog('Botón de configuración encontrado, añadiendo event listener');
+                }
                 // Remover listeners anteriores si existen
                 const newBtn = settingsBtn.cloneNode(true);
                 settingsBtn.parentNode.replaceChild(newBtn, settingsBtn);
@@ -1966,15 +1252,21 @@
                 newBtn.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Botón de configuración clickeado (event listener)');
+                    if (typeof window.debugLog === 'function') {
+                        window.debugLog('Botón de configuración clickeado');
+                    }
                     if (window.openSettings) {
                         window.openSettings();
                     } else {
-                        console.error('window.openSettings no está definido');
+                        if (typeof window.debugError === 'function') {
+                            window.debugError('window.openSettings no está definido');
+                        }
                     }
                 });
             } else {
-                console.error('Botón de configuración no encontrado');
+                if (typeof window.debugError === 'function') {
+                    window.debugError('Botón de configuración no encontrado');
+                }
             }
         }
         
@@ -1991,9 +1283,13 @@
         
         // Cambiar nombre de usuario (usar event delegation para que funcione cuando el modal se abre)
         document.addEventListener('submit', function(e) {
-            console.log('=== FORM SUBMIT DETECTED ===', e.target, e.target.id);
+            if (typeof window.debugLog === 'function') {
+                window.debugLog('=== FORM SUBMIT DETECTED ===', e.target?.id);
+            }
             if (e.target && e.target.id === 'changeUsernameForm') {
-                console.log('=== CHANGE USERNAME FORM SUBMITTED ===');
+                if (typeof window.debugLog === 'function') {
+                    window.debugLog('=== CHANGE USERNAME FORM SUBMITTED ===');
+                }
                 e.preventDefault();
                 e.stopPropagation();
                 
@@ -2001,7 +1297,9 @@
                 const newUsernameInput = document.getElementById('newUsername');
                 
                 if (!currentPassword || !newUsernameInput) {
-                    console.error('Campos no encontrados:', {currentPassword, newUsernameInput});
+                    if (typeof window.debugError === 'function') {
+                        window.debugError('Campos no encontrados:', {currentPassword, newUsernameInput});
+                    }
                     if (typeof window.showError === 'function') {
                         window.showError('Error: No se encontraron los campos del formulario');
                     } else {
@@ -2013,14 +1311,18 @@
                 const currentPasswordValue = currentPassword.value.trim();
                 const newUsernameValue = newUsernameInput.value.trim();
                 
-                console.log('Datos del formulario:', {
-                    currentPassword: currentPasswordValue ? '***' : 'VACÍO',
-                    newUsername: newUsernameValue
-                });
+                if (typeof window.debugLog === 'function') {
+                    window.debugLog('Datos del formulario:', {
+                        currentPassword: currentPasswordValue ? '***' : 'VACÍO',
+                        newUsername: newUsernameValue
+                    });
+                }
                 
                 // Validar que los campos estén llenos
                 if (!currentPasswordValue) {
-                    console.log('Validación fallida: contraseña vacía');
+                    if (typeof window.debugLog === 'function') {
+                        window.debugLog('Validación fallida: contraseña vacía');
+                    }
                     if (typeof window.showError === 'function') {
                         window.showError('Debes ingresar tu contraseña actual');
                     } else {
@@ -2030,7 +1332,9 @@
                 }
                 
                 if (!newUsernameValue) {
-                    console.log('Validación fallida: nombre de usuario vacío');
+                    if (typeof window.debugLog === 'function') {
+                        window.debugLog('Validación fallida: nombre de usuario vacío');
+                    }
                     if (typeof window.showError === 'function') {
                         window.showError('Debes ingresar un nuevo nombre de usuario');
                     } else {
@@ -2040,7 +1344,9 @@
                 }
                 
                 if (newUsernameValue.length < 3) {
-                    console.log('Validación fallida: nombre de usuario muy corto');
+                    if (typeof window.debugLog === 'function') {
+                        window.debugLog('Validación fallida: nombre de usuario muy corto');
+                    }
                     if (typeof window.showError === 'function') {
                         window.showError('El nombre de usuario debe tener al menos 3 caracteres');
                     } else {
@@ -2049,8 +1355,10 @@
                     return;
                 }
                 
-                console.log('Enviando petición a:', '{{ path('app_profile_change_username') }}');
-                console.log('Body:', {current_password: '***', new_username: newUsernameValue});
+                if (typeof window.debugLog === 'function') {
+                    window.debugLog('Enviando petición a:', '{{ path('app_profile_change_username') }}');
+                    window.debugLog('Body:', {current_password: '***', new_username: newUsernameValue});
+                }
             
                 fetch('{{ path('app_profile_change_username') }}', {
                     method: 'POST',
@@ -2064,42 +1372,40 @@
                     })
                 })
                 .then(response => {
-                    console.log('=== RESPONSE RECIBIDA ===');
-                    console.log('Response status:', response.status);
-                    console.log('Response headers:', response.headers);
+                    if (typeof window.debugLog === 'function') {
+                        window.debugLog('=== RESPONSE RECIBIDA ===', response.status);
+                    }
                     if (!response.ok) {
                         return response.json().then(data => {
-                            console.error('Error del servidor:', data);
+                            if (typeof window.debugError === 'function') {
+                                window.debugError('Error del servidor:', data);
+                            }
                             throw new Error(data.message || 'Error del servidor');
                         });
                     }
                     return response.json();
                 })
                 .then(data => {
-                    console.log('=== DATA RECIBIDA ===');
-                    console.log('Response data:', data);
+                    if (typeof window.debugLog === 'function') {
+                        window.debugLog('=== DATA RECIBIDA ===', data);
+                    }
                     if (data.success) {
-                        console.log('Éxito: Actualizando UI');
-                        console.log('Llamando a showSuccess...');
-                        console.log('showSuccess disponible?', typeof window.showSuccess);
                         if (typeof window.showSuccess === 'function') {
                             window.showSuccess('Nombre de usuario actualizado correctamente');
-                            console.log('showSuccess llamado');
                         } else {
-                            console.error('ERROR: showSuccess no está disponible');
                             alert('Nombre de usuario actualizado correctamente');
                         }
                         // Actualizar el nombre en el perfil sin recargar
                         const usernameElements = document.querySelectorAll('[data-username]');
-                        console.log('Elementos encontrados con data-username:', usernameElements.length);
                         usernameElements.forEach(el => {
-                            console.log('Actualizando elemento:', el, 'con:', newUsernameValue);
                             el.textContent = newUsernameValue;
                         });
                         // Limpiar el formulario
                         document.getElementById('changeUsernameForm').reset();
                     } else {
-                        console.error('Error en la respuesta:', data);
+                        if (typeof window.debugError === 'function') {
+                            window.debugError('Error en la respuesta:', data);
+                        }
                         if (typeof window.showError === 'function') {
                             window.showError(data.message || 'Error desconocido');
                         } else {
@@ -2108,9 +1414,9 @@
                     }
                 })
                 .catch(error => {
-                    console.error('=== ERROR EN FETCH ===');
-                    console.error('Error completo:', error);
-                    console.error('Error stack:', error.stack);
+                    if (typeof window.debugError === 'function') {
+                        window.debugError('=== ERROR EN FETCH ===', error);
+                    }
                     if (typeof window.showError === 'function') {
                         window.showError(error.message || 'Error al cambiar el nombre de usuario');
                     } else {
@@ -2157,7 +1463,9 @@
                     })
                 })
                 .then(response => {
-                    console.log('Response status:', response.status);
+                    if (typeof window.debugLog === 'function') {
+                        window.debugLog('Response status:', response.status);
+                    }
                     if (!response.ok) {
                         return response.json().then(data => {
                             throw new Error(data.message || 'Error del servidor');
@@ -2166,7 +1474,9 @@
                     return response.json();
                 })
                 .then(data => {
-                    console.log('Response data:', data);
+                    if (typeof window.debugLog === 'function') {
+                        window.debugLog('Response data:', data);
+                    }
                     if (data.success) {
                         showSuccess('Correo actualizado correctamente');
                         // Actualizar el correo en el perfil sin recargar
@@ -2233,7 +1543,9 @@
                     })
                 })
                 .then(response => {
-                    console.log('Response status:', response.status);
+                    if (typeof window.debugLog === 'function') {
+                        window.debugLog('Response status:', response.status);
+                    }
                     if (!response.ok) {
                         return response.json().then(data => {
                             throw new Error(data.message || 'Error del servidor');
@@ -2242,7 +1554,9 @@
                     return response.json();
                 })
                 .then(data => {
-                    console.log('Response data:', data);
+                    if (typeof window.debugLog === 'function') {
+                        window.debugLog('Response data:', data);
+                    }
                     if (data.success) {
                         showSuccess('Contraseña actualizada correctamente');
                         // Limpiar el formulario
@@ -2299,8 +1613,12 @@
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
-                showError('Error al cambiar el tema');
+                if (typeof window.debugError === 'function') {
+                    window.debugError('Error:', error);
+                }
+                if (typeof window.showError === 'function') {
+                    window.showError('Error al cambiar el tema');
+                }
             });
         });
         
@@ -2345,8 +1663,12 @@
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
-                showError('Error al cambiar el idioma');
+                if (typeof window.debugError === 'function') {
+                    window.debugError('Error:', error);
+                }
+                if (typeof window.showError === 'function') {
+                    window.showError('Error al cambiar el idioma');
+                }
             });
         });
     </script>
