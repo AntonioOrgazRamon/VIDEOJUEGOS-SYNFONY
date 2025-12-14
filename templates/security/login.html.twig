@@ -308,7 +308,7 @@
                 </button>
 
                 {% if error %}
-                    <button type="button" class="btn-forgot-password" onclick="alert('Funcionalidad en desarrollo. Próximamente podrás recuperar tu contraseña.')">
+                    <button type="button" class="btn-forgot-password" onclick="window.location.href='{{ path('app_password_reset_request') }}'">
                         ¿Olvidaste tu contraseña?
                     </button>
                 {% endif %}

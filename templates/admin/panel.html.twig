@@ -1,0 +1,684 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Panel de Administración - Usuarios Activos{% endblock %}
+
+{% block body %}
+<div class="admin-panel-container">
+    <div class="admin-header">
+        <h1>👥 Panel de Administración - Usuarios Activos</h1>
+        <div class="admin-stats">
+            <span class="stat-item">
+                <span class="stat-label">Usuarios Online:</span>
+                <span class="stat-value" id="online-count">0</span>
+            </span>
+            <span class="stat-item">
+                <span class="stat-label">Última actualización:</span>
+                <span class="stat-value" id="last-update">--:--:--</span>
+            </span>
+        </div>
+        <a href="{{ path('app_home') }}" class="btn-back">← Volver al inicio</a>
+    </div>
+
+    <div class="admin-content">
+        <div class="users-list-container">
+            <div class="users-list-header">
+                <h2>Usuarios Activos en Tiempo Real</h2>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-refresh" onclick="debugActivity()" title="Ver información de debug" style="background: #666F88; font-size: 12px; padding: 8px 15px;">
+                        🔍 Debug
+                    </button>
+                    <button class="btn-refresh" onclick="refreshUsers()" title="Actualizar manualmente">
+                        🔄 Actualizar
+                    </button>
+                </div>
+            </div>
+            
+            <div id="users-list" class="users-list">
+                <!-- Los usuarios se cargarán aquí -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .admin-panel-container {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        padding: 20px;
+        color: #fff;
+    }
+
+    .admin-header {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+
+    .admin-header h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 600;
+        color: #fff;
+    }
+
+    .admin-stats {
+        display: flex;
+        gap: 30px;
+        flex-wrap: wrap;
+    }
+
+    .stat-item {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .stat-label {
+        font-size: 12px;
+        color: #a3a8b7;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .stat-value {
+        font-size: 20px;
+        font-weight: 700;
+        color: #00ff88;
+    }
+
+    .btn-back {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+        padding: 10px 20px;
+        border-radius: 8px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-back:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .admin-content {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 25px;
+    }
+
+    .users-list-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .users-list-header h2 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 600;
+    }
+
+    .btn-refresh {
+        background: #00ff88;
+        color: #1a1a2e;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .btn-refresh:hover {
+        background: #00cc6a;
+        transform: translateY(-2px);
+    }
+
+    .users-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 20px;
+    }
+
+    .user-card {
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+    .user-card:hover {
+        background: rgba(255, 255, 255, 0.12);
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .user-card-header {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 15px;
+    }
+
+    .user-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #00ff88;
+    }
+
+    .user-info {
+        flex: 1;
+    }
+
+    .user-name {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0 0 5px 0;
+        color: #fff;
+    }
+
+    .user-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: #a3a8b7;
+    }
+
+    .status-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #00ff88;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    .user-details {
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .detail-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        font-size: 14px;
+    }
+
+    .detail-label {
+        color: #a3a8b7;
+    }
+
+    .detail-value {
+        color: #fff;
+        font-weight: 500;
+    }
+
+    .game-badge {
+        background: rgba(0, 255, 136, 0.2);
+        color: #00ff88;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        display: inline-block;
+    }
+
+    .user-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+    }
+
+    .btn-action {
+        flex: 1;
+        padding: 10px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        font-size: 14px;
+    }
+
+    .btn-kick {
+        background: #ff6b6b;
+        color: #fff;
+    }
+
+    .btn-kick:hover {
+        background: #ff5252;
+        transform: translateY(-2px);
+    }
+
+    .btn-ban {
+        background: #ff4757;
+        color: #fff;
+    }
+
+    .btn-ban:hover {
+        background: #ff3838;
+        transform: translateY(-2px);
+    }
+
+    .users-list.loading {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 200px;
+    }
+
+    .loading-spinner {
+        text-align: center;
+        padding: 40px;
+        color: #a3a8b7;
+    }
+
+    .spinner {
+        border: 3px solid rgba(255, 255, 255, 0.1);
+        border-top: 3px solid #00ff88;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto 15px;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #a3a8b7;
+    }
+
+    .empty-state-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+    }
+</style>
+
+<script>
+    let usersPollingInterval;
+    let activityUpdateInterval;
+    let isLoadingUsers = false;
+    let errorCount = 0;
+    const MAX_ERRORS = 3;
+
+    // Actualizar actividad del usuario actual cada 30 segundos
+    function updateUserActivity() {
+        const currentPage = window.location.pathname;
+        const gameId = getCurrentGameId();
+        
+        fetch('/api/user/update-activity', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                page: currentPage,
+                game_id: gameId
+            })
+        }).catch(error => {
+            console.error('Error al actualizar actividad:', error);
+        });
+    }
+
+    function getCurrentGameId() {
+        const path = window.location.pathname;
+        const match = path.match(/\/game\/play\/(\d+)/);
+        return match ? parseInt(match[1]) : null;
+    }
+
+    // Cargar usuarios activos
+    function loadActiveUsers(showError = true) {
+        // Evitar múltiples requests simultáneos
+        if (isLoadingUsers) {
+            return;
+        }
+        
+        const container = document.getElementById('users-list');
+        
+        // Si hay demasiados errores, parar el polling
+        if (errorCount >= MAX_ERRORS) {
+            if (showError) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <p>Demasiados errores. El polling se ha detenido.</p>
+                        <button class="btn-refresh" onclick="resetAndLoad()" style="margin-top: 20px;">Reintentar</button>
+                    </div>
+                `;
+            }
+            return;
+        }
+        
+        isLoadingUsers = true;
+        
+        // Mostrar loading solo la primera vez
+        if (!container.dataset.loaded && showError) {
+            container.innerHTML = `
+                <div class="loading-spinner">
+                    <div class="spinner"></div>
+                    <p>Cargando usuarios activos...</p>
+                </div>
+            `;
+            container.classList.add('loading');
+        }
+        
+        fetch('/admin/users/active', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(async response => {
+            const contentType = response.headers.get("content-type");
+            if (!response.ok) {
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorMessage;
+                } catch (e) {
+                    // Si no es JSON, usar el mensaje por defecto
+                }
+                throw new Error(errorMessage);
+            }
+            
+            if (contentType && contentType.includes("application/json")) {
+                return response.json();
+            } else {
+                throw new Error('Respuesta no es JSON');
+            }
+        })
+        .then(data => {
+            isLoadingUsers = false;
+            errorCount = 0; // Resetear contador de errores en éxito
+            container.classList.remove('loading');
+            container.dataset.loaded = 'true';
+            
+            if (data.success) {
+                displayUsers(data.users);
+                updateStats(data.count);
+                updateLastUpdateTime();
+            } else {
+                if (showError) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">⚠️</div>
+                            <p>Error: ${escapeHtml(data.message || 'No se pudieron cargar los usuarios')}</p>
+                            <button class="btn-refresh" onclick="resetAndLoad()" style="margin-top: 20px;">Reintentar</button>
+                        </div>
+                    `;
+                }
+                console.error('Error al cargar usuarios:', data.message);
+                errorCount++;
+            }
+        })
+        .catch(error => {
+            isLoadingUsers = false;
+            errorCount++;
+            console.error('Error al cargar usuarios:', error);
+            
+            const errorMessage = error.message || 'Error desconocido';
+            
+            if (showError && errorCount < MAX_ERRORS) {
+                container.classList.remove('loading');
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">❌</div>
+                        <p>${escapeHtml(errorMessage)}</p>
+                        <p style="font-size: 12px; color: #a3a8b7; margin-top: 10px;">(${errorCount}/${MAX_ERRORS} intentos)</p>
+                        <button class="btn-refresh" onclick="resetAndLoad()" style="margin-top: 20px;">Reintentar</button>
+                    </div>
+                `;
+            } else if (errorCount >= MAX_ERRORS) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <p>Demasiados errores. El polling se ha detenido.</p>
+                        <p style="font-size: 12px; color: #a3a8b7; margin-top: 10px;">Último error: ${escapeHtml(errorMessage)}</p>
+                        <button class="btn-refresh" onclick="resetAndLoad()" style="margin-top: 20px;">Reintentar</button>
+                    </div>
+                `;
+            }
+        });
+    }
+
+    function resetAndLoad() {
+        errorCount = 0;
+        isLoadingUsers = false;
+        const container = document.getElementById('users-list');
+        container.dataset.loaded = 'false';
+        loadActiveUsers(true);
+    }
+
+    function debugActivity() {
+        fetch('/admin/debug/activity', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('=== DEBUG ACTIVIDAD ===');
+            console.log('Total actividades en BD:', data.total_activities);
+            console.log('Actividades recientes:', data.activities);
+            console.log('Usuarios con last_seen_at:', data.users_with_last_seen);
+            console.log('Usuario actual:', data.current_username, '(ID:', data.current_user_id + ')');
+            
+            alert(`DEBUG ACTIVIDAD:\n\n` +
+                  `Total actividades: ${data.total_activities}\n` +
+                  `Actividades recientes: ${data.activities.length}\n` +
+                  `Usuarios con last_seen_at: ${data.users_with_last_seen.length}\n\n` +
+                  `Revisa la consola (F12) para más detalles.`);
+        })
+        .catch(error => {
+            console.error('Error en debug:', error);
+            alert('Error al obtener información de debug');
+        });
+    }
+
+    function displayUsers(users) {
+        const container = document.getElementById('users-list');
+        
+        if (users.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">👤</div>
+                    <p>No hay usuarios activos en este momento</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = users.map(user => `
+            <div class="user-card">
+                <div class="user-card-header">
+                    <img src="${user.profileImage || '/images/default_profile.svg'}" 
+                         alt="${user.username}" 
+                         class="user-avatar"
+                         onerror="this.src='/images/default_profile.svg'">
+                    <div class="user-info">
+                        <h3 class="user-name">${escapeHtml(user.username)}</h3>
+                        <div class="user-status">
+                            <span class="status-indicator"></span>
+                            <span>En línea</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="user-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Email:</span>
+                        <span class="detail-value">${escapeHtml(user.email)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Juego actual:</span>
+                        <span class="detail-value">
+                            ${user.currentGame ? `<span class="game-badge">🎮 ${escapeHtml(user.currentGame.name)}</span>` : '<span style="color: #a3a8b7;">Ninguno</span>'}
+                        </span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Página:</span>
+                        <span class="detail-value">${escapeHtml(user.currentPage || 'Inicio')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Última actividad:</span>
+                        <span class="detail-value">${formatTime(user.lastActivityAt)}</span>
+                    </div>
+                </div>
+                <div class="user-actions">
+                    <button class="btn-action btn-kick" onclick="kickUser(${user.id}, '${escapeHtml(user.username)}')">
+                        🚪 Kick
+                    </button>
+                    <button class="btn-action btn-ban" onclick="banUser(${user.id}, '${escapeHtml(user.username)}')">
+                        🚫 Ban
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function updateStats(count) {
+        document.getElementById('online-count').textContent = count;
+    }
+
+    function updateLastUpdateTime() {
+        const now = new Date();
+        const time = now.toLocaleTimeString('es-ES');
+        document.getElementById('last-update').textContent = time;
+    }
+
+    function formatTime(dateString) {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        const now = new Date();
+        const diff = Math.floor((now - date) / 1000);
+        
+        if (diff < 60) return 'Hace ' + diff + ' segundos';
+        if (diff < 3600) return 'Hace ' + Math.floor(diff / 60) + ' minutos';
+        return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function kickUser(userId, username) {
+        if (!confirm(`¿Estás seguro de que quieres kickear a ${username}? Será redirigido al login.`)) {
+            return;
+        }
+
+        fetch(`/admin/users/kick/${userId}`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (typeof window.showSuccess === 'function') {
+                    window.showSuccess(`Usuario ${username} kickeado correctamente`);
+                }
+                loadActiveUsers(false);
+            } else {
+                if (typeof window.showError === 'function') {
+                    window.showError(data.message || 'Error al kickear usuario');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error al kickear usuario:', error);
+            if (typeof window.showError === 'function') {
+                window.showError('Error al kickear usuario');
+            }
+        });
+    }
+
+    function banUser(userId, username) {
+        if (!confirm(`¿Estás seguro de que quieres BANEAR a ${username}? Esta acción no se puede deshacer fácilmente.`)) {
+            return;
+        }
+
+        fetch(`/admin/users/ban/${userId}`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (typeof window.showSuccess === 'function') {
+                    window.showSuccess(`Usuario ${username} baneado correctamente`);
+                }
+                loadActiveUsers(false);
+            } else {
+                if (typeof window.showError === 'function') {
+                    window.showError(data.message || 'Error al banear usuario');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error al banear usuario:', error);
+            if (typeof window.showError === 'function') {
+                window.showError('Error al banear usuario');
+            }
+        });
+    }
+
+    function refreshUsers() {
+        resetAndLoad();
+    }
+
+    // Inicializar
+    document.addEventListener('DOMContentLoaded', function() {
+        // Cargar usuarios inmediatamente (con mensajes de error)
+        loadActiveUsers(true);
+        
+        // Actualizar cada 3 segundos (tiempo real, sin mostrar errores en cada iteración)
+        usersPollingInterval = setInterval(() => {
+            loadActiveUsers(false); // No mostrar errores en polling automático
+        }, 3000);
+        
+        // Actualizar actividad del usuario actual cada 30 segundos
+        updateUserActivity();
+        activityUpdateInterval = setInterval(updateUserActivity, 30000);
+    });
+
+    // Limpiar intervalos al salir
+    window.addEventListener('beforeunload', function() {
+        if (usersPollingInterval) clearInterval(usersPollingInterval);
+        if (activityUpdateInterval) clearInterval(activityUpdateInterval);
+    });
+</script>
+{% endblock %}
+

@@ -398,16 +398,160 @@ function initOptimizedEvents() {
     window.addEventListener('resize', handleResize, { passive: true });
 }
 
+// Sistema de actualización de actividad de usuario (para panel de admin)
+function updateUserActivity() {
+    // Solo actualizar si el usuario está autenticado (verificar si hay elementos de usuario)
+    const userElements = document.querySelector('[data-username]');
+    if (!userElements) return;
+    
+    const currentPage = window.location.pathname;
+    let gameId = null;
+    
+    // Intentar obtener gameId de la URL
+    const pathMatch = window.location.pathname.match(/\/game\/play\/(\d+)/);
+    if (pathMatch) {
+        gameId = parseInt(pathMatch[1]);
+    }
+    
+    fetch('/api/user/update-activity', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({
+            page: currentPage,
+            game_id: gameId
+        })
+    }).catch(error => {
+        debugError('Error al actualizar actividad:', error);
+    });
+}
+
+// Marcar usuario como offline
+function markUserOffline() {
+    const userElements = document.querySelector('[data-username]');
+    if (!userElements) return;
+    
+    // Usar sendBeacon para asegurar que se envíe incluso si la página se cierra
+    const data = JSON.stringify({});
+    if (navigator.sendBeacon) {
+        navigator.sendBeacon('/api/user/mark-offline', data);
+    } else {
+        // Fallback para navegadores que no soportan sendBeacon
+        fetch('/api/user/mark-offline', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: data,
+            keepalive: true // Mantener la conexión abierta
+        }).catch(() => {
+            // Ignorar errores al cerrar
+        });
+    }
+}
+
+// Verificar si el usuario fue kickeado
+function checkIfKicked() {
+    // Solo verificar si el usuario está autenticado (hay elementos de usuario en la página)
+    const userElements = document.querySelector('[data-username]');
+    if (!userElements) return;
+    
+    fetch('/api/user/check-status', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        // Verificar header especial
+        if (response.headers.get('X-User-Kicked') === 'true') {
+            // Usuario fue kickeado, redirigir al login
+            if (typeof window.showInfo === 'function') {
+                window.showInfo('Has sido desconectado por un administrador');
+            }
+            setTimeout(() => {
+                window.location.href = '/login?kicked=1';
+            }, 1000);
+            return;
+        }
+        
+        return response.json();
+    })
+    .then(data => {
+        if (data && data.kicked === true) {
+            // Usuario fue kickeado
+            if (typeof window.showInfo === 'function') {
+                window.showInfo('Has sido desconectado por un administrador');
+            }
+            setTimeout(() => {
+                window.location.href = '/login?kicked=1';
+            }, 1000);
+        }
+    })
+    .catch(error => {
+        // Si hay un error 401 o 403, puede ser que la sesión fue invalidada
+        // No hacer nada, el listener ya se encargará de redirigir
+    });
+}
+
 // Inicializar mejoras de rendimiento
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         initLazyLoading();
         initOptimizedEvents();
+        
+        // Actualizar actividad al cargar la página
+        updateUserActivity();
+        
+        // Verificar si fue kickeado cada 5 segundos
+        setInterval(checkIfKicked, 5000);
+        
+        // Actualizar actividad cada 15 segundos (más frecuente para mejor detección)
+        setInterval(updateUserActivity, 15000);
     });
 } else {
     initLazyLoading();
     initOptimizedEvents();
+    
+    // Actualizar actividad al cargar la página
+    updateUserActivity();
+    
+    // Verificar si fue kickeado cada 5 segundos
+    setInterval(checkIfKicked, 5000);
+    
+    // Actualizar actividad cada 15 segundos
+    setInterval(updateUserActivity, 15000);
 }
+
+// Detectar cierre de pestaña/navegador
+window.addEventListener('beforeunload', function() {
+    markUserOffline();
+});
+
+// Detectar cuando la pestaña se oculta (usuario cambia de pestaña)
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        // Cuando la pestaña se oculta, no marcamos como offline inmediatamente
+        // pero reducimos la frecuencia de actualización
+    } else {
+        // Cuando vuelve a estar visible, actualizar inmediatamente
+        updateUserActivity();
+    }
+});
+
+// Actualizar actividad cuando cambia la página (SPA-like)
+let lastUrl = location.href;
+new MutationObserver(() => {
+    const url = location.href;
+    if (url !== lastUrl) {
+        lastUrl = url;
+        updateUserActivity();
+    }
+}).observe(document, { subtree: true, childList: true });
 
 // Exportar funciones globales
 window.debugLog = debugLog;

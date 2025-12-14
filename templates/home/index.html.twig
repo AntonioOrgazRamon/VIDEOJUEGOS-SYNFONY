@@ -188,73 +188,97 @@
                         </script>
                         
                         <script>
-                        // Verificar estado de juegos en tiempo real (polling cada 5 segundos)
-                        // Activo para TODOS los usuarios (admin y normales) para ver cambios en tiempo real
-                        let gamesStatusCheck = setInterval(function() {
-                            // Para polling, NO usar cache (necesitamos datos en tiempo real)
-                            const fetchFn = (typeof window.fetchWithRetry === 'function') 
-                                ? window.fetchWithRetry 
-                                : fetch;
-                            
-                            fetchFn('/admin/games/status', {
+                        // Función para actualizar el estado de los juegos
+                        function updateGamesStatus(data) {
+                            if (data.success && data.games) {
+                                Object.keys(data.games).forEach(gameId => {
+                                    const gameStatus = data.games[gameId];
+                                    const gameCards = document.querySelectorAll(`.game-card[data-game-id="${gameId}"]`);
+                                    
+                                    gameCards.forEach(card => {
+                                        const isActive = gameStatus.isActive === true || gameStatus.isActive === 'true';
+                                        const currentIsActive = card.getAttribute('data-is-active') === 'true';
+                                        
+                                        // Actualizar siempre el atributo para mantener sincronización
+                                        card.setAttribute('data-is-active', isActive ? 'true' : 'false');
+                                        
+                                        // Solo actualizar visualmente si el estado ha cambiado
+                                        if (isActive !== currentIsActive) {
+                                            if (isActive) {
+                                                // Desbloquear juego
+                                                card.classList.remove('game-disabled');
+                                                const blockedOverlay = card.querySelector('.game-blocked-overlay');
+                                                if (blockedOverlay) {
+                                                    blockedOverlay.remove();
+                                                }
+                                            } else {
+                                                // Bloquear juego
+                                                card.classList.add('game-disabled');
+                                                if (!card.querySelector('.game-blocked-overlay')) {
+                                                    const overlay = document.createElement('div');
+                                                    overlay.className = 'game-blocked-overlay';
+                                                    overlay.innerHTML = '<div class="game-blocked-text">BLOQUEADO</div>';
+                                                    card.appendChild(overlay);
+                                                }
+                                            }
+                                            
+                                            if (typeof window.debugLog === 'function') {
+                                                window.debugLog('Estado del juego actualizado:', gameId, 'Activo:', isActive);
+                                            }
+                                        }
+                                    });
+                                    
+                                    // Asegurar que los admins tengan el atributo data-admin-context
+                                    {% if isAdmin %}
+                                    gameCards.forEach(card => {
+                                        if (!card.hasAttribute('data-admin-context')) {
+                                            card.setAttribute('data-admin-context', 'true');
+                                        }
+                                    });
+                                    {% endif %}
+                                });
+                            }
+                        }
+                        
+                        // Función para verificar el estado de los juegos
+                        // Optimizado: usa caché HTTP del servidor (5 segundos) para reducir carga
+                        function checkGamesStatus() {
+                            fetch('/admin/games/status', {
                                 method: 'GET',
                                 headers: {
                                     'X-Requested-With': 'XMLHttpRequest'
-                                }
+                                },
+                                cache: 'default' // Permite usar caché HTTP del servidor
                             })
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success) {
-                                    // Actualizar estado de los juegos
-                                    Object.keys(data.games).forEach(gameId => {
-                                        const gameStatus = data.games[gameId];
-                                        const gameCards = document.querySelectorAll(`.game-card[data-game-id="${gameId}"]`);
-                                        
-                                        gameCards.forEach(card => {
-                                            const isActive = gameStatus.isActive;
-                                            const currentIsActive = card.getAttribute('data-is-active') === 'true';
-                                            
-                                            // Solo actualizar si el estado ha cambiado
-                                            if (isActive !== currentIsActive) {
-                                                card.setAttribute('data-is-active', isActive ? 'true' : 'false');
-                                                
-                                                if (isActive) {
-                                                    card.classList.remove('game-disabled');
-                                                    // Eliminar overlay de bloqueado
-                                                    const blockedOverlay = card.querySelector('.game-blocked-overlay');
-                                                    if (blockedOverlay) {
-                                                        blockedOverlay.remove();
-                                                    }
-                                                } else {
-                                                    card.classList.add('game-disabled');
-                                                    // Añadir overlay de bloqueado si no existe
-                                                    if (!card.querySelector('.game-blocked-overlay')) {
-                                                        const overlay = document.createElement('div');
-                                                        overlay.className = 'game-blocked-overlay';
-                                                        overlay.innerHTML = '<div class="game-blocked-text">BLOQUEADO</div>';
-                                                        card.appendChild(overlay);
-                                                    }
-                                                }
-                                            }
-                                        });
-                                        
-                                        // Asegurar que los admins tengan el atributo data-admin-context
-                                        {% if isAdmin %}
-                                        gameCards.forEach(card => {
-                                            if (!card.hasAttribute('data-admin-context')) {
-                                                card.setAttribute('data-admin-context', 'true');
-                                            }
-                                        });
-                                        {% endif %}
-                                    });
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error('Error en la respuesta del servidor');
                                 }
+                                return response.json();
+                            })
+                            .then(data => {
+                                updateGamesStatus(data);
                             })
                             .catch(error => {
                                 if (typeof window.debugError === 'function') {
                                     window.debugError('Error al verificar estado de juegos:', error);
                                 }
                             });
-                        }, 5000); // Verificar cada 5 segundos (optimizado para reducir carga)
+                        }
+                        
+                        // Verificar estado de juegos en tiempo real (polling optimizado cada 5 segundos)
+                        // Activo para TODOS los usuarios (admin y normales) para ver cambios en tiempo real
+                        // Intervalo aumentado a 5 segundos para reducir carga del servidor
+                        let gamesStatusCheck;
+                        
+                        // Ejecutar inmediatamente al cargar la página (no esperar 5 segundos)
+                        setTimeout(function() {
+                            // Primera verificación inmediata
+                            checkGamesStatus();
+                            
+                            // Configurar polling cada 5 segundos (optimizado desde 2s)
+                            gamesStatusCheck = setInterval(checkGamesStatus, 5000);
+                        }, 100); // Ejecutar después de 100ms para asegurar que el DOM esté listo
                         
                         // Menú contextual para admin
                         {% if isAdmin %}
@@ -467,10 +491,15 @@
                                 gameCards.forEach(card => {
                                     let clickTimer = null;
                                     
-                                    // Manejar clic simple (para navegación futura)
+                                    // Manejar clic simple (para navegar al juego)
                                     card.addEventListener('click', function(e) {
                                         // Si se hace clic en el corazón, no hacer nada aquí
                                         if (e.target.closest('.game-favorite')) {
+                                            return;
+                                        }
+                                        
+                                        // No permitir clic en juegos bloqueados (excepto para admin con clic derecho)
+                                        if (card.classList.contains('game-disabled')) {
                                             return;
                                         }
                                         
@@ -478,8 +507,11 @@
                                         if (clickTimer === null) {
                                             clickTimer = setTimeout(function() {
                                                 clickTimer = null;
-                                                // Aquí puedes añadir navegación al juego en el futuro
-                                                // window.location.href = '#';
+                                                // Navegar al juego
+                                                const gameId = parseInt(card.getAttribute('data-game-id'));
+                                                if (gameId) {
+                                                    window.location.href = '/game/play/' + gameId;
+                                                }
                                             }, 300); // 300ms para detectar doble clic
                                         }
                                     });
@@ -1041,6 +1073,16 @@
             </div>
             
             <div class="d-grid gap-2">
+                {% if isAdmin %}
+                <a href="{{ path('app_admin_panel') }}" class="btn btn-outline-warning btn-sm" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff4757 100%); color: white; border: none;">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 5px; vertical-align: middle;">
+                        <path d="M8 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                        <path d="M8 1a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 4a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0zm7 0a2.5 2.5 0 1 1 5 0 2.5 2.5 0 0 1-5 0z"/>
+                        <path d="M2.5 7a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zm11 0a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/>
+                    </svg>
+                    Panel Admin
+                </a>
+                {% endif %}
                 <button type="button" class="btn btn-outline-primary btn-sm" id="settingsBtn" onclick="if(window.openSettings){window.openSettings();}else{alert('Error: openSettings no está disponible');} return false;">
                     <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 5px; vertical-align: middle;">
                         <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>

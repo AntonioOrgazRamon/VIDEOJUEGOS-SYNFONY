@@ -1,0 +1,843 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ game.name }} - Jugar{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .game-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .game-container {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            grid-template-rows: auto 1fr;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1920px;
+            margin: 0 auto;
+        }
+
+        .game-close-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            color: white;
+            font-size: 32px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 10001;
+            padding: 0;
+            margin: 0;
+            font-weight: 300;
+        }
+
+        .game-close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: scale(1.1);
+        }
+
+        .ranking-panel {
+            grid-column: 1;
+            grid-row: 1 / -1;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 20px;
+            padding-bottom: 40px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow-y: auto;
+            max-height: calc(100vh - 40px);
+            margin-bottom: 20px;
+        }
+
+        .ranking-title {
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .ranking-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .ranking-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 4px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .ranking-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+
+        .ranking-item.top-1 {
+            border-left-color: #FFD700;
+            background: rgba(255, 215, 0, 0.1);
+        }
+
+        .ranking-item.top-2 {
+            border-left-color: #C0C0C0;
+            background: rgba(192, 192, 192, 0.1);
+        }
+
+        .ranking-item.top-3 {
+            border-left-color: #CD7F32;
+            background: rgba(205, 127, 50, 0.1);
+        }
+
+        .ranking-item.user-position {
+            border-left-color: #666F88;
+            background: rgba(102, 111, 136, 0.15);
+            border-top: 2px solid rgba(255, 255, 255, 0.2);
+            margin-top: 15px;
+            padding-top: 15px;
+        }
+
+        .ranking-separator {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.2);
+            margin: 15px 0;
+        }
+
+        .ranking-position {
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .ranking-info {
+            flex: 1;
+            margin-left: 15px;
+        }
+
+        .ranking-username {
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .ranking-score {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+        }
+
+        .game-center {
+            grid-column: 2;
+            grid-row: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .game-title {
+            color: white;
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .game-frame {
+            width: 100%;
+            max-width: 1920px;
+            height: 80vh;
+            max-height: 1080px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .game-frame iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 12px;
+        }
+
+        .game-placeholder {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 18px;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .user-panel {
+            grid-column: 3;
+            grid-row: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            height: fit-content;
+            position: relative;
+        }
+
+        .user-panel-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .user-info {
+            flex: 1;
+        }
+
+        .user-name {
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .user-status {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+        }
+
+        .user-settings-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 8px 16px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .user-settings-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .empty-ranking {
+            color: rgba(255, 255, 255, 0.5);
+            text-align: center;
+            padding: 40px 20px;
+            font-size: 14px;
+        }
+
+        @media (max-width: 1400px) {
+            .game-container {
+                grid-template-columns: 250px 1fr 250px;
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .game-container {
+                grid-template-columns: 200px 1fr 200px;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="game-overlay" id="gameOverlay">
+    <button class="game-close-btn" onclick="closeGame()" title="Cerrar juego">×</button>
+    
+    <div class="game-container">
+        <!-- Panel de Ranking (Izquierda) -->
+        <div class="ranking-panel">
+            <h2 class="ranking-title">🏆 Top 10</h2>
+            {% if topScores|length > 0 %}
+                <ul class="ranking-list">
+                    {% for item in topScores %}
+                        <li class="ranking-item {% if loop.index <= 3 %}top-{{ loop.index }}{% endif %}">
+                            <span class="ranking-position">#{{ loop.index }}</span>
+                            <div class="ranking-info">
+                                <div class="ranking-username">{{ item.username }}</div>
+                                <div class="ranking-score">{{ item.score.score|number_format(0, ',', '.') }} puntos</div>
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+                
+                {# Mostrar posición del usuario si no está en el top 10 #}
+                {% if userPosition %}
+                    <div class="ranking-separator"></div>
+                <ul class="ranking-list">
+                    <li class="ranking-item user-position">
+                        <span class="ranking-position">#{{ userPosition.position }}</span>
+                        <div class="ranking-info">
+                            <div class="ranking-username">{{ userPosition.username }} (Tú)</div>
+                            <div class="ranking-score">{{ userPosition.score.score|number_format(0, ',', '.') }} puntos</div>
+                        </div>
+                    </li>
+                </ul>
+                {% endif %}
+            {% else %}
+                <div class="empty-ranking">
+                    <p>🎮</p>
+                    <p>Aún no hay puntuaciones</p>
+                    <p style="font-size: 12px; margin-top: 10px;">¡Sé el primero en jugar!</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Juego Centrado -->
+        <div class="game-center">
+            <h1 class="game-title">{{ game.name }}</h1>
+            <div class="game-frame" id="gameFrame">
+                {% if gameTemplate %}
+                    {% include gameTemplate with {'game': game, 'gameId': gameId, 'user': user} %}
+                {% else %}
+                    <div class="game-placeholder">
+                        <p>🎮</p>
+                        <p>El juego aún no está disponible</p>
+                        <p style="font-size: 14px; margin-top: 10px; opacity: 0.7;">
+                            Crea la carpeta <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">templates/games/{{ game.slug }}/</code>
+                        </p>
+                        <p style="font-size: 12px; margin-top: 10px; opacity: 0.6;">
+                            Y añade un archivo <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">game.html.twig</code>
+                        </p>
+                        <p style="font-size: 12px; margin-top: 20px; opacity: 0.5;">
+                            Lee <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">templates/games/README.md</code> para más información
+                        </p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Panel de Usuario (Derecha Arriba) -->
+        <div class="user-panel">
+            <div class="user-panel-header">
+                {% if user.profileImage %}
+                    <img src="/{{ user.profileImage }}" alt="Avatar" class="user-avatar" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250%22 height=%2250%22%3E%3Ccircle cx=%2225%22 cy=%2225%22 r=%2225%22 fill=%22%236c757d%22/%3E%3Ctext x=%2225%22 y=%2225%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22white%22 font-size=%2220%22%3E👤%3C/text%3E%3C/svg%3E';">
+                {% else %}
+                    <div class="user-avatar" style="background: var(--color-primary-medium-dark); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px;">👤</div>
+                {% endif %}
+                <div class="user-info">
+                    <div class="user-name">{{ user.username }}</div>
+                    <div class="user-status">{{ user.status|capitalize }}</div>
+                </div>
+            </div>
+            <button class="user-settings-btn" onclick="openSettings()">⚙️ Configuración</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Configuración -->
+<div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true" style="z-index: 10002;">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="max-height: 90vh; display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+            <div class="modal-header" style="flex-shrink: 0; background: linear-gradient(135deg, #666F88 0%, #788199 100%); color: white; border: none;">
+                <h5 class="modal-title fw-bold" id="settingsModalLabel">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 8px; vertical-align: middle;">
+                        <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+                        <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.292-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.292c.415.764-.42 1.6-1.185 1.184l-.292-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.319c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.693-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.292A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115l.094-.319z"/>
+                    </svg>
+                    Configuración
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 1.5rem;">
+                <!-- Opciones -->
+                <div class="row g-3 mb-4">
+                    <div class="col-12 col-md-6">
+                        <button type="button" class="btn btn-outline-secondary w-100 h-100 d-flex align-items-center justify-content-center p-3" id="toggleThemeBtn" style="min-height: 60px;">
+                            <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 8px;">
+                                <path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                                <path d="M13.997 8.5a5.5 5.5 0 0 0-11 0 5.5 5.5 0 0 0 11 0zm-1 0a4.5 4.5 0 0 1-9 0 4.5 4.5 0 0 1 9 0z"/>
+                            </svg>
+                            <div class="text-start">
+                                <div class="fw-semibold" id="themeBtnText">{% if themeMode == 'dark' %}Modo Claro{% else %}Modo Oscuro{% endif %}</div>
+                                <small class="text-muted">{% if themeMode == 'dark' %}Actualmente: Oscuro{% else %}Actualmente: Claro{% endif %}</small>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <button type="button" class="btn btn-outline-secondary w-100 h-100 d-flex align-items-center justify-content-center p-3" id="toggleLanguageBtn" style="min-height: 60px;">
+                            <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 8px;">
+                                <path d="M10.478 1.647a.5.5 0 1 0-.956-.294l-4 13a.5.5 0 0 0 .956.294l4-13zM4.854 4.146a.5.5 0 0 1 0 .708L1.707 8l3.147 3.146a.5.5 0 0 1-.708.708l-3.5-3.5a.5.5 0 0 1 0-.708l3.5-3.5a.5.5 0 0 1 .708 0zm6.292 0a.5.5 0 0 0 0 .708L14.293 8l-3.147 3.146a.5.5 0 0 0 .708.708l3.5-3.5a.5.5 0 0 0 0-.708l-3.5-3.5a.5.5 0 0 0-.708 0z"/>
+                            </svg>
+                            <div class="text-start">
+                                <div class="fw-semibold" id="languageBtnText">{% if language == 'en' %}Cambiar a Español{% else %}Cambiar a Inglés{% endif %}</div>
+                                <small class="text-muted">{% if language == 'en' %}Actualmente: Inglés{% else %}Actualmente: Español{% endif %}</small>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Formularios con Acordeón -->
+                <div class="accordion" id="settingsAccordion">
+                    <!-- Cambiar Nombre -->
+                    <div class="accordion-item border rounded mb-3" style="box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        <h2 class="accordion-header" id="headingUsername">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseUsername" aria-expanded="false" aria-controls="collapseUsername" style="background-color: #f5f6f8; font-weight: 500;">
+                                <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 10px;">
+                                    <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/>
+                                </svg>
+                                <span class="fw-semibold">Cambiar Nombre de Usuario</span>
+                            </button>
+                        </h2>
+                        <div id="collapseUsername" class="accordion-collapse collapse" aria-labelledby="headingUsername" data-bs-parent="#settingsAccordion">
+                            <div class="accordion-body p-4">
+                                <form id="changeUsernameForm">
+                                    <div class="mb-3">
+                                        <label for="currentPasswordUsername" class="form-label fw-semibold">Contraseña Actual</label>
+                                        <input type="password" class="form-control" id="currentPasswordUsername" placeholder="Ingresa tu contraseña actual" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="newUsername" class="form-label fw-semibold">Nuevo Nombre de Usuario</label>
+                                        <input type="text" class="form-control" id="newUsername" value="{{ user.username }}" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100" style="background: linear-gradient(135deg, #666F88 0%, #788199 100%); border: none;">
+                                        Cambiar Nombre
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Cambiar Correo -->
+                    <div class="accordion-item border rounded mb-3" style="box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        <h2 class="accordion-header" id="headingEmail">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEmail" aria-expanded="false" aria-controls="collapseEmail" style="background-color: #f5f6f8; font-weight: 500;">
+                                <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 10px;">
+                                    <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4Zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2Zm13 2.383-4.708 2.825L15 11.105V5.383Zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741ZM1 11.105l4.708-2.897L1 5.383v5.722Z"/>
+                                </svg>
+                                <span class="fw-semibold">Cambiar Correo Electrónico</span>
+                            </button>
+                        </h2>
+                        <div id="collapseEmail" class="accordion-collapse collapse" aria-labelledby="headingEmail" data-bs-parent="#settingsAccordion">
+                            <div class="accordion-body p-4">
+                                <form id="changeEmailForm">
+                                    <div class="mb-3">
+                                        <label for="currentPasswordEmail" class="form-label fw-semibold">Contraseña Actual</label>
+                                        <input type="password" class="form-control" id="currentPasswordEmail" placeholder="Ingresa tu contraseña actual" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="newEmail" class="form-label fw-semibold">Nuevo Correo</label>
+                                        <input type="email" class="form-control" id="newEmail" value="{{ user.email }}" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100">Cambiar Correo</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Cambiar Contraseña -->
+                    <div class="accordion-item border rounded mb-3" style="box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                        <h2 class="accordion-header" id="headingPassword">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePassword" aria-expanded="false" aria-controls="collapsePassword" style="background-color: #f5f6f8; font-weight: 500;">
+                                <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 10px;">
+                                    <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM5 8h6a1 1 0 0 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9a1 1 0 0 1 1z"/>
+                                </svg>
+                                <span class="fw-semibold">Cambiar Contraseña</span>
+                            </button>
+                        </h2>
+                        <div id="collapsePassword" class="accordion-collapse collapse" aria-labelledby="headingPassword" data-bs-parent="#settingsAccordion">
+                            <div class="accordion-body p-4">
+                                <form id="changePasswordForm">
+                                    <div class="mb-3">
+                                        <label for="currentPassword" class="form-label fw-semibold">Contraseña Actual</label>
+                                        <input type="password" class="form-control" id="currentPassword" placeholder="Ingresa tu contraseña actual" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="newPassword" class="form-label fw-semibold">Nueva Contraseña</label>
+                                        <input type="password" class="form-control" id="newPassword" placeholder="Mínimo 6 caracteres" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="confirmNewPassword" class="form-label fw-semibold">Confirmar Nueva Contraseña</label>
+                                        <input type="password" class="form-control" id="confirmNewPassword" placeholder="Repite la nueva contraseña" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100">Cambiar Contraseña</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        function closeGame() {
+            window.location.href = '{{ path('app_home') }}';
+        }
+
+        // Función para abrir configuración
+        function openSettings() {
+            // Intentar abrir el modal directamente con Bootstrap
+            const modalElement = document.getElementById('settingsModal');
+            if (modalElement) {
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    const modal = new bootstrap.Modal(modalElement);
+                    modal.show();
+                } else {
+                    // Fallback: usar la función global si existe
+                    if (typeof window.openSettings === 'function') {
+                        window.openSettings();
+                    } else {
+                        // Si no hay modal ni función, redirigir a la página principal
+                        window.location.href = '{{ path('app_home') }}';
+                    }
+                }
+            } else {
+                // Si no existe el modal, redirigir a la página principal
+                window.location.href = '{{ path('app_home') }}';
+            }
+        }
+
+        // Cerrar con tecla ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeGame();
+            }
+        });
+
+        // Prevenir scroll del body cuando el overlay está abierto
+        document.body.style.overflow = 'hidden';
+        
+        // Restaurar scroll cuando se cierre
+        window.addEventListener('beforeunload', function() {
+            document.body.style.overflow = '';
+        });
+
+        // Inicializar event listeners para los formularios del modal de configuración
+        document.addEventListener('DOMContentLoaded', function() {
+            // Cambiar nombre de usuario
+            const changeUsernameForm = document.getElementById('changeUsernameForm');
+            if (changeUsernameForm) {
+                changeUsernameForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const currentPassword = document.getElementById('currentPasswordUsername').value.trim();
+                    const newUsername = document.getElementById('newUsername').value.trim();
+                    
+                    if (!currentPassword || !newUsername) {
+                        if (typeof window.showError === 'function') {
+                            window.showError('Debes completar todos los campos');
+                        }
+                        return;
+                    }
+                    
+                    fetch('{{ path('app_profile_change_username') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({
+                            current_password: currentPassword,
+                            new_username: newUsername
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (typeof window.showSuccess === 'function') {
+                                window.showSuccess('Nombre de usuario actualizado correctamente');
+                            }
+                            changeUsernameForm.reset();
+                        } else {
+                            if (typeof window.showError === 'function') {
+                                window.showError(data.message || 'Error desconocido');
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        if (typeof window.showError === 'function') {
+                            window.showError('Error al cambiar el nombre de usuario');
+                        }
+                    });
+                });
+            }
+
+            // Cambiar correo
+            const changeEmailForm = document.getElementById('changeEmailForm');
+            if (changeEmailForm) {
+                changeEmailForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const currentPassword = document.getElementById('currentPasswordEmail').value.trim();
+                    const newEmail = document.getElementById('newEmail').value.trim();
+                    
+                    if (!currentPassword || !newEmail) {
+                        if (typeof window.showError === 'function') {
+                            window.showError('Debes completar todos los campos');
+                        }
+                        return;
+                    }
+                    
+                    fetch('{{ path('app_profile_change_email') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({
+                            current_password: currentPassword,
+                            new_email: newEmail
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (typeof window.showSuccess === 'function') {
+                                window.showSuccess('Correo actualizado correctamente');
+                            }
+                            changeEmailForm.reset();
+                        } else {
+                            if (typeof window.showError === 'function') {
+                                window.showError(data.message || 'Error desconocido');
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        if (typeof window.showError === 'function') {
+                            window.showError('Error al cambiar el correo');
+                        }
+                    });
+                });
+            }
+
+            // Cambiar contraseña
+            const changePasswordForm = document.getElementById('changePasswordForm');
+            if (changePasswordForm) {
+                changePasswordForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const currentPassword = document.getElementById('currentPassword').value.trim();
+                    const newPassword = document.getElementById('newPassword').value;
+                    const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+                    
+                    if (!currentPassword || !newPassword || !confirmNewPassword) {
+                        if (typeof window.showError === 'function') {
+                            window.showError('Debes completar todos los campos');
+                        }
+                        return;
+                    }
+                    
+                    if (newPassword !== confirmNewPassword) {
+                        if (typeof window.showError === 'function') {
+                            window.showError('Las contraseñas no coinciden');
+                        }
+                        return;
+                    }
+                    
+                    fetch('{{ path('app_profile_change_password') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({
+                            current_password: currentPassword,
+                            new_password: newPassword
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (typeof window.showSuccess === 'function') {
+                                window.showSuccess('Contraseña actualizada correctamente');
+                            }
+                            changePasswordForm.reset();
+                        } else {
+                            if (typeof window.showError === 'function') {
+                                window.showError(data.message || 'Error desconocido');
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        if (typeof window.showError === 'function') {
+                            window.showError('Error al cambiar la contraseña');
+                        }
+                    });
+                });
+            }
+
+            // Cambiar tema
+            const toggleThemeBtn = document.getElementById('toggleThemeBtn');
+            if (toggleThemeBtn) {
+                toggleThemeBtn.addEventListener('click', function() {
+                    const currentTheme = '{{ themeMode }}';
+                    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                    
+                    fetch('{{ path('app_profile_change_theme') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ theme_mode: newTheme })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (typeof window.showSuccess === 'function') {
+                                window.showSuccess('Tema actualizado correctamente');
+                            }
+                            location.reload();
+                        } else {
+                            if (typeof window.showError === 'function') {
+                                window.showError(data.message || 'Error desconocido');
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        if (typeof window.showError === 'function') {
+                            window.showError('Error al cambiar el tema');
+                        }
+                    });
+                });
+            }
+
+            // Cambiar idioma
+            const toggleLanguageBtn = document.getElementById('toggleLanguageBtn');
+            if (toggleLanguageBtn) {
+                toggleLanguageBtn.addEventListener('click', function() {
+                    const currentLanguage = '{{ language }}';
+                    const newLanguage = currentLanguage === 'es' ? 'en' : 'es';
+                    
+                    fetch('{{ path('app_profile_change_language') }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ language: newLanguage })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (typeof window.showSuccess === 'function') {
+                                window.showSuccess('Idioma actualizado correctamente');
+                            }
+                            location.reload();
+                        } else {
+                            if (typeof window.showError === 'function') {
+                                window.showError(data.message || 'Error desconocido');
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        if (typeof window.showError === 'function') {
+                            window.showError('Error al cambiar el idioma');
+                        }
+                    });
+                });
+            }
+
+            // Limpiar backdrop cuando se cierre el modal
+            const modalElement = document.getElementById('settingsModal');
+            if (modalElement) {
+                modalElement.addEventListener('hidden.bs.modal', function() {
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    backdrops.forEach(backdrop => backdrop.remove());
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = 'hidden'; // Mantener oculto porque estamos en el overlay del juego
+                    document.body.style.paddingRight = '';
+                });
+            }
+
+            // Detectar cierre de pestaña/navegador (dentro del juego también)
+            window.addEventListener('beforeunload', function() {
+                // Marcar como offline al cerrar
+                if (typeof markUserOffline === 'function') {
+                    markUserOffline();
+                } else {
+                    // Fallback si la función no está disponible
+                    fetch('/api/user/mark-offline', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({}),
+                        keepalive: true
+                    }).catch(() => {});
+                }
+            });
+
+            // Actualizar actividad dentro del juego cada 10 segundos (más frecuente)
+            // Esto asegura que el usuario siga apareciendo como activo en el panel
+            setInterval(function() {
+                const currentPage = window.location.pathname;
+                const gameId = {{ gameId }};
+                
+                fetch('/api/user/update-activity', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        page: currentPage,
+                        game_id: gameId
+                    })
+                }).then(response => {
+                    if (!response.ok) {
+                        console.error('Error al actualizar actividad:', response.status);
+                    }
+                }).catch(error => {
+                    console.error('Error al actualizar actividad:', error);
+                });
+            }, 10000); // Cada 10 segundos
+        });
+    </script>
+{% endblock %}
+

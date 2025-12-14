@@ -15,5 +15,20 @@ class PasswordResetRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, PasswordReset::class);
     }
+
+    /**
+     * Encuentra todos los resets activos (no usados y no expirados) de un usuario
+     */
+    public function findActiveResetsByUser(int $userId): array
+    {
+        return $this->createQueryBuilder('pr')
+            ->where('pr.user = :userId')
+            ->andWhere('pr.usedAt IS NULL')
+            ->andWhere('pr.expiresAt > :now')
+            ->setParameter('userId', $userId)
+            ->setParameter('now', new \DateTime())
+            ->getQuery()
+            ->getResult();
+    }
 }
 
