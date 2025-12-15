@@ -1,0 +1,854 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Cuenta Baneada{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .banned-container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* Header Principal - Estado */
+        .status-header {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 3rem 2.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .status-header.status-pending {
+            border-left: 4px solid #ffc107;
+        }
+
+        .status-header.status-approved {
+            border-left: 4px solid #00ff88;
+        }
+
+        .status-header.status-suspended {
+            border-left: 4px solid #ff4757;
+        }
+
+        .status-icon {
+            font-size: 72px;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .status-title {
+            color: #fff;
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0 0 0.75rem 0;
+        }
+
+        .status-subtitle {
+            color: #a3a8b7;
+            font-size: 1.125rem;
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        /* Tarjetas de Contenido */
+        .content-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-title {
+            color: #fff;
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 0 0 1.25rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .ban-reason-box {
+            background: rgba(255, 71, 87, 0.1);
+            border: 1px solid rgba(255, 71, 87, 0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .ban-reason-box h4 {
+            color: #ff4757;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            margin: 0 0 0.75rem 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .ban-reason-box p {
+            color: #fff;
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.6;
+            font-size: 1rem;
+        }
+
+        .ban-meta {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.875rem;
+            color: #a3a8b7;
+        }
+
+        .ban-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* CTA Contextual */
+        .cta-section {
+            text-align: center;
+        }
+
+        .cta-message {
+            color: #a3a8b7;
+            font-size: 1rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .btn-cta {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-cta-primary {
+            background: linear-gradient(135deg, #ff4757 0%, #ff6b7a 100%);
+            color: white;
+        }
+
+        .btn-cta-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 71, 87, 0.4);
+        }
+
+        .btn-cta-success {
+            background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+            color: #1a1a2e;
+        }
+
+        .btn-cta-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 255, 136, 0.4);
+        }
+
+        .btn-cta:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Formulario de Apelación */
+        .appeal-form {
+            margin-top: 1.5rem;
+        }
+
+        .appeal-form textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            font-size: 0.9375rem;
+            resize: vertical;
+            margin-bottom: 1rem;
+            font-family: inherit;
+            line-height: 1.5;
+        }
+
+        .appeal-form textarea:focus {
+            outline: none;
+            border-color: #ff4757;
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 3px rgba(255, 71, 87, 0.1);
+        }
+
+        .appeal-form textarea::placeholder {
+            color: #a3a8b7;
+        }
+
+        /* Historial Colapsable */
+        .history-section {
+            margin-top: 2rem;
+        }
+
+        .history-toggle {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            margin-bottom: 1rem;
+        }
+
+        .history-toggle:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .history-toggle h3 {
+            color: #fff;
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .history-toggle-icon {
+            color: #a3a8b7;
+            font-size: 1.25rem;
+            transition: transform 0.3s ease;
+        }
+
+        .history-toggle.active .history-toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        .history-content {
+            display: none;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .history-content.active {
+            display: block;
+        }
+
+        .history-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .history-content::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        .history-content::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0.5rem;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 2rem;
+            padding-left: 1.5rem;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -0.5rem;
+            top: 0.25rem;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid;
+            background: rgba(26, 26, 46, 1);
+        }
+
+        .timeline-item.pending::before {
+            border-color: #ffc107;
+            background: #ffc107;
+        }
+
+        .timeline-item.approved::before {
+            border-color: #00ff88;
+            background: #00ff88;
+        }
+
+        .timeline-item.rejected::before {
+            border-color: #ff4757;
+            background: #ff4757;
+        }
+
+        .timeline-card {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+            padding: 1.25rem;
+            border-left: 3px solid;
+        }
+
+        .timeline-card.pending {
+            border-left-color: #ffc107;
+        }
+
+        .timeline-card.approved {
+            border-left-color: #00ff88;
+        }
+
+        .timeline-card.rejected {
+            border-left-color: #ff4757;
+        }
+
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .timeline-status {
+            padding: 0.375rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .timeline-status.pending {
+            background: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+        }
+
+        .timeline-status.approved {
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+        }
+
+        .timeline-status.rejected {
+            background: rgba(255, 71, 87, 0.2);
+            color: #ff4757;
+        }
+
+        .timeline-date {
+            color: #666F88;
+            font-size: 0.8125rem;
+        }
+
+        .timeline-message {
+            color: #a3a8b7;
+            font-size: 0.9375rem;
+            margin-bottom: 0.75rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .timeline-response {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .timeline-response strong {
+            color: #fff;
+            font-size: 0.875rem;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .timeline-response p {
+            color: #a3a8b7;
+            font-size: 0.875rem;
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.5;
+        }
+
+        .empty-history {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #a3a8b7;
+        }
+
+        .empty-history-icon {
+            font-size: 48px;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .alert {
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            font-size: 0.9375rem;
+        }
+
+        .alert-info {
+            background: rgba(102, 111, 136, 0.2);
+            border: 1px solid rgba(102, 111, 136, 0.3);
+            color: #a3a8b7;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="banned-container">
+    <!-- Header Principal - Estado Dinámico -->
+    <div class="status-header {% if latestAppeal and latestAppeal.status == 'approved' %}status-approved{% elseif latestAppeal and latestAppeal.status == 'pending' %}status-pending{% else %}status-suspended{% endif %}">
+        {% if latestAppeal and latestAppeal.status == 'approved' %}
+            {# Solo mostrar "Aprobada" si hay una apelación actual aprobada #}
+            <span class="status-icon">✅</span>
+            <h1 class="status-title">Apelación Aprobada</h1>
+            <p class="status-subtitle">Tu cuenta ha sido desbaneada. Serás redirigido al inicio en breve.</p>
+        {% elseif latestAppeal and latestAppeal.status == 'pending' %}
+            <span class="status-icon">⏳</span>
+            <h1 class="status-title">Cuenta en Revisión</h1>
+            <p class="status-subtitle">Tu apelación está siendo revisada por los administradores. Te notificaremos cuando haya una respuesta.</p>
+        {% else %}
+            {# No hay apelación actual o es antigua - mostrar estado de baneo #}
+            <span class="status-icon">🚫</span>
+            <h1 class="status-title">Cuenta Suspendida Temporalmente</h1>
+            <p class="status-subtitle">Tu cuenta ha sido baneada y no puedes acceder a la plataforma. Puedes enviar una apelación para que los administradores revisen tu caso.</p>
+        {% endif %}
+    </div>
+
+    <!-- Bloque: Qué ha pasado -->
+    <div class="content-card">
+        <h2 class="card-title">📋 Qué ha pasado</h2>
+        
+        {% if user.banMessage %}
+            <div class="ban-reason-box" id="banReasonBox">
+                <h4>Motivo del baneo</h4>
+                <p id="banMessageText">{{ user.banMessage|escape('js') }}</p>
+            </div>
+        {% else %}
+            <div class="ban-reason-box" style="background: rgba(102, 111, 136, 0.1); border-color: rgba(102, 111, 136, 0.3);">
+                <h4 style="color: #a3a8b7;">Motivo del baneo</h4>
+                <p style="color: #a3a8b7;">No se ha proporcionado un motivo específico para el ban.</p>
+            </div>
+        {% endif %}
+
+        <div class="ban-meta">
+            <div class="ban-meta-item">
+                <span>📅</span>
+                <span>Cuenta creada: {{ user.createdAt|date('d/m/Y') }}</span>
+            </div>
+            {% if user.lastSeenAt %}
+            <div class="ban-meta-item">
+                <span>👁️</span>
+                <span>Última vez visto: {{ user.lastSeenAt|date('d/m/Y H:i') }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Bloque: Próximo paso -->
+    <div class="content-card cta-section">
+        <h2 class="card-title">🎯 Próximo paso</h2>
+        
+        {% if latestAppeal and latestAppeal.status == 'approved' %}
+            {# Solo mostrar esto si hay una apelación actual aprobada #}
+            <p class="cta-message">No necesitas hacer nada. Tu cuenta ha sido restaurada y serás redirigido automáticamente.</p>
+            {% if latestAppeal.adminResponse %}
+                <div style="background: rgba(0, 255, 136, 0.1); border: 1px solid rgba(0, 255, 136, 0.3); border-radius: 12px; padding: 1.25rem; margin-top: 1rem; text-align: left;">
+                    <strong style="color: #00ff88; display: block; margin-bottom: 0.5rem;">Respuesta del administrador:</strong>
+                    <p style="color: #fff; margin: 0; white-space: pre-wrap; word-break: break-word; line-height: 1.6;">{{ latestAppeal.adminResponse }}</p>
+                </div>
+            {% endif %}
+        {% elseif latestAppeal and latestAppeal.status == 'pending' %}
+            <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 0.75rem;">✅</div>
+                <p class="cta-message" style="color: #ffc107; font-weight: 600; margin-bottom: 0.5rem;">Apelación enviada correctamente</p>
+                <p class="cta-message" style="margin: 0;">Un administrador se pondrá en contacto contigo lo antes posible. Te notificaremos cuando haya una respuesta.</p>
+            </div>
+            {% if latestAppeal.adminResponse %}
+                <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); border-radius: 12px; padding: 1.25rem; margin-top: 1rem; text-align: left;">
+                    <strong style="color: #ffc107; display: block; margin-bottom: 0.5rem;">Actualización del administrador:</strong>
+                    <p style="color: #fff; margin: 0; white-space: pre-wrap; word-break: break-word; line-height: 1.6;">{{ latestAppeal.adminResponse }}</p>
+                </div>
+            {% endif %}
+        {% else %}
+            {# No hay apelación actual o es antigua - permitir enviar nueva apelación #}
+            <p class="cta-message">Si crees que este ban fue un error, puedes enviar una apelación explicando tu situación. Los administradores revisarán tu caso.</p>
+            
+            {# Mostrar información de apelación rechazada solo si es reciente (menos de 24h) #}
+            {% if latestAppeal and latestAppeal.status == 'rejected' %}
+                <div class="alert alert-info" style="margin-bottom: 1.5rem; text-align: left;">
+                    Tu última apelación fue rechazada. Puedes enviar una nueva apelación si tienes información adicional.
+                </div>
+                {% if latestAppeal.adminResponse %}
+                    <div style="background: rgba(255, 71, 87, 0.1); border: 1px solid rgba(255, 71, 87, 0.3); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; text-align: left;">
+                        <strong style="color: #ff4757; display: block; margin-bottom: 0.5rem;">Respuesta del administrador:</strong>
+                        <p style="color: #fff; margin: 0; white-space: pre-wrap; word-break: break-word; line-height: 1.6;">{{ latestAppeal.adminResponse }}</p>
+                    </div>
+                {% endif %}
+            {% endif %}
+
+            <form class="appeal-form" id="appealForm">
+                <textarea 
+                    id="appealMessage" 
+                    name="message" 
+                    placeholder="Explica por qué crees que tu ban fue un error. Sé respetuoso y proporciona detalles relevantes (mínimo 10 caracteres)..."
+                    required
+                    minlength="10"
+                    maxlength="2000"
+                ></textarea>
+                <button type="submit" class="btn-cta btn-cta-primary" id="submitBtn">
+                    📝 Enviar Apelación
+                </button>
+            </form>
+        {% endif %}
+    </div>
+
+    <!-- Bloque Colapsable: Historial de Apelaciones -->
+    {% if allAppeals|length > 0 %}
+    <div class="history-section">
+        <div class="history-toggle" onclick="toggleHistory()">
+            <h3>📜 Historial de Apelaciones</h3>
+            <span class="history-toggle-icon" id="appealHistoryIcon">▼</span>
+        </div>
+        <div class="history-content" id="historyContent">
+            <div class="timeline">
+                {% for appeal in allAppeals %}
+                    <div class="timeline-item {{ appeal.status }}">
+                        <div class="timeline-card {{ appeal.status }}">
+                            <div class="timeline-header">
+                                <span class="timeline-status {{ appeal.status }}">
+                                    {% if appeal.status == 'pending' %}
+                                        ⏳ Pendiente
+                                    {% elseif appeal.status == 'approved' %}
+                                        ✅ Aprobada
+                                    {% else %}
+                                        ❌ Rechazada
+                                    {% endif %}
+                                </span>
+                                <span class="timeline-date">
+                                    {{ appeal.createdAt|date('d/m/Y H:i') }}
+                                    {% if appeal.reviewedAt %}
+                                        • Revisado: {{ appeal.reviewedAt|date('d/m/Y H:i') }}
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="timeline-message">{{ appeal.message }}</div>
+                            {% if appeal.adminResponse %}
+                                <div class="timeline-response">
+                                    <strong>Respuesta del administrador:</strong>
+                                    <p>{{ appeal.adminResponse }}</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function toggleHistory() {
+    const toggles = document.querySelectorAll('.history-toggle');
+    const toggle = toggles[toggles.length - 1];
+    const content = document.getElementById('historyContent');
+    const icon = document.getElementById('appealHistoryIcon');
+    
+    if (content) {
+        toggle.classList.toggle('active');
+        content.classList.toggle('active');
+        if (icon) {
+            icon.textContent = content.classList.contains('active') ? '▲' : '▼';
+        }
+    }
+}
+
+// Polling para verificar estado del ban y apelación en tiempo real
+(function() {
+    let statusCheckInterval;
+    let lastAppealStatus = '{{ latestAppeal ? latestAppeal.status : 'none' }}';
+    let lastAppealId = {{ latestAppeal ? latestAppeal.id : 'null' }};
+    let lastBanMessage = null;
+    
+    // Inicializar lastBanMessage de forma segura desde el DOM
+    (function() {
+        const banMessageElement = document.getElementById('banMessageText');
+        if (banMessageElement) {
+            lastBanMessage = banMessageElement.textContent || null;
+        }
+    })();
+    
+    function checkBannedStatus() {
+        fetch('/banned/status', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data || !data.success) {
+                return;
+            }
+            
+            // Si el usuario ya no está baneado (fue desbaneado)
+            if (data.isActive) {
+                clearInterval(statusCheckInterval);
+                
+                // Mostrar mensaje de éxito si hay respuesta del admin
+                if (data.latestAppeal && data.latestAppeal.status === 'approved' && data.latestAppeal.adminResponse) {
+                    showAdminResponse(data.latestAppeal.adminResponse, 'approved');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 3000);
+                } else {
+                    window.location.href = '/';
+                }
+                return;
+            }
+            
+            // Actualizar mensaje de ban si cambió
+            if (data.banMessage && data.banMessage !== lastBanMessage) {
+                lastBanMessage = data.banMessage;
+                updateBanMessage(data.banMessage);
+            }
+            
+            // Verificar si la apelación cambió de estado
+            if (data.latestAppeal) {
+                const currentStatus = data.latestAppeal.status;
+                const currentId = data.latestAppeal.id;
+                
+                if (currentStatus !== lastAppealStatus || currentId !== lastAppealId) {
+                    lastAppealStatus = currentStatus;
+                    lastAppealId = currentId;
+                    
+                    if (currentStatus === 'approved' || currentStatus === 'rejected') {
+                        if (currentStatus === 'approved') {
+                            setTimeout(() => {
+                                location.reload();
+                            }, 500);
+                        } else {
+                            location.reload();
+                        }
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error al verificar estado:', error);
+        });
+    }
+    
+    statusCheckInterval = setInterval(checkBannedStatus, 2000);
+    checkBannedStatus();
+    
+    window.addEventListener('beforeunload', function() {
+        clearInterval(statusCheckInterval);
+    });
+})();
+
+function showAdminResponse(response, status) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center;';
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = 'background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 3rem; border-radius: 20px; max-width: 500px; width: 90%; border: 2px solid ' + (status === 'approved' ? '#00ff88' : '#ff4757') + '; box-shadow: 0 8px 32px rgba(0,0,0,0.5);';
+    
+    const icon = status === 'approved' ? '✅' : '❌';
+    const title = status === 'approved' ? '¡Apelación Aprobada!' : 'Apelación Rechazada';
+    const titleColor = status === 'approved' ? '#00ff88' : '#ff4757';
+    
+    modal.innerHTML = `
+        <div style="text-align: center; margin-bottom: 1.5rem;">
+            <div style="font-size: 64px; margin-bottom: 1rem;">${icon}</div>
+            <h2 style="color: ${titleColor}; margin: 0; font-size: 1.75rem;">${title}</h2>
+        </div>
+        <div style="background: rgba(255,255,255,0.05); padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem;">
+            <p style="color: #a3a8b7; margin: 0 0 0.75rem 0; font-weight: 600;">Respuesta del administrador:</p>
+            <p style="color: #fff; margin: 0; white-space: pre-wrap; word-break: break-word;">${escapeHtml(response)}</p>
+        </div>
+        ${status === 'approved' ? '<p style="color: #00ff88; text-align: center; margin: 0;">Serás redirigido al inicio en unos segundos...</p>' : ''}
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    if (status === 'rejected') {
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) {
+                document.body.removeChild(overlay);
+            }
+        });
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function updateBanMessage(message) {
+    let reasonBox = document.getElementById('banReasonBox');
+    let messageText = document.getElementById('banMessageText');
+    
+    if (!reasonBox) {
+        const card = document.querySelector('.content-card');
+        reasonBox = document.createElement('div');
+        reasonBox.id = 'banReasonBox';
+        reasonBox.className = 'ban-reason-box';
+        reasonBox.style.animation = 'slideDown 0.3s ease';
+        
+        reasonBox.innerHTML = `
+            <h4>Motivo del baneo</h4>
+            <p id="banMessageText">${escapeHtml(message)}</p>
+        `;
+        
+        const cardTitle = card.querySelector('.card-title');
+        cardTitle.insertAdjacentElement('afterend', reasonBox);
+    } else {
+        if (messageText) {
+            messageText.textContent = message;
+        }
+        reasonBox.style.animation = 'none';
+        setTimeout(() => {
+            reasonBox.style.animation = 'slideDown 0.3s ease';
+        }, 10);
+    }
+}
+
+// Esperar a que el DOM esté listo
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔍 DOM cargado, buscando formulario...');
+    const appealForm = document.getElementById('appealForm');
+    
+    if (!appealForm) {
+        console.log('⚠️ No se encontró el formulario appealForm');
+        return;
+    }
+    
+    console.log('✅ Formulario encontrado, agregando listener...');
+    
+    appealForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        console.log('📤 Formulario enviado!');
+        
+        const messageInput = document.getElementById('appealMessage');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        if (!messageInput || !submitBtn) {
+            console.error('❌ No se encontraron los elementos:', { messageInput, submitBtn });
+            alert('Error: No se encontraron los elementos del formulario');
+            return;
+        }
+        
+        const message = messageInput.value.trim();
+        console.log('📝 Mensaje:', message.substring(0, 50) + '...');
+        
+        if (message.length < 10) {
+            alert('El mensaje debe tener al menos 10 caracteres');
+            return;
+        }
+        
+        if (message.length > 2000) {
+            alert('El mensaje no puede exceder 2000 caracteres');
+            return;
+        }
+        
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Enviando...';
+        console.log('📤 Enviando petición a /banned/appeal...');
+        
+        try {
+            const response = await fetch('/banned/appeal', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ message: message })
+            });
+            
+            console.log('📥 Respuesta recibida, status:', response.status);
+            
+            const responseText = await response.text();
+            console.log('📥 Texto de respuesta:', responseText.substring(0, 200));
+            
+            let data;
+            
+            try {
+                data = JSON.parse(responseText);
+                console.log('📥 Datos parseados:', data);
+            } catch (e) {
+                console.error('❌ Error parsing response:', e, responseText);
+                alert('❌ Error al procesar la respuesta del servidor: ' + responseText.substring(0, 100));
+                submitBtn.disabled = false;
+                submitBtn.textContent = '📝 Enviar Apelación';
+                return;
+            }
+            
+            if (data.success) {
+                console.log('✅ Éxito!', data);
+                alert('✅ ' + data.message);
+                window.location.reload();
+            } else {
+                console.error('❌ Error en respuesta:', data);
+                alert('❌ ' + (data.message || 'Error al enviar apelación'));
+                submitBtn.disabled = false;
+                submitBtn.textContent = '📝 Enviar Apelación';
+            }
+        } catch (error) {
+            console.error('❌ Error en catch:', error);
+            alert('❌ Error al enviar apelación: ' + error.message);
+            submitBtn.disabled = false;
+            submitBtn.textContent = '📝 Enviar Apelación';
+        }
+    });
+    
+    console.log('✅ Listener agregado al formulario');
+});
+</script>
+{% endblock %}

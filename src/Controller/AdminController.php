@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\Game;
 use App\Entity\User;
+use App\Entity\UserBanHistory;
 use App\Repository\UserActivityRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -180,7 +181,7 @@ class AdminController extends AbstractController
     }
 
     #[Route('/admin/users/ban/{userId}', name: 'app_admin_ban_user', methods: ['POST'])]
-    public function banUser(int $userId, EntityManagerInterface $entityManager, CacheInterface $cache): JsonResponse
+    public function banUser(int $userId, Request $request, EntityManagerInterface $entityManager, CacheInterface $cache): JsonResponse
     {
         $user = $this->getUser();
         
@@ -205,9 +206,28 @@ class AdminController extends AbstractController
             return new JsonResponse(['success' => false, 'message' => 'Usuario no encontrado'], 404);
         }
 
+        // Obtener mensaje de ban del request
+        $data = json_decode($request->getContent(), true);
+        $banMessage = isset($data['banMessage']) ? trim($data['banMessage']) : null;
+        
+        // Limitar longitud del mensaje
+        if ($banMessage && strlen($banMessage) > 1000) {
+            $banMessage = substr($banMessage, 0, 1000);
+        }
+
         // Banear usuario (desactivar cuenta)
         $targetUser->setIsActive(false);
+        $targetUser->setBanMessage($banMessage);
         $entityManager->persist($targetUser);
+        
+        // Registrar en historial
+        $banHistory = new UserBanHistory();
+        $banHistory->setUser($targetUser);
+        $banHistory->setActionType('ban');
+        $banHistory->setMessage($banMessage);
+        $banHistory->setPerformedBy($user->getId());
+        $entityManager->persist($banHistory);
+        
         $entityManager->flush();
 
         // Invalidar caché de usuarios activos
@@ -219,6 +239,115 @@ class AdminController extends AbstractController
             'user' => [
                 'id' => $targetUser->getId(),
                 'username' => $targetUser->getUsername(),
+                'isActive' => $targetUser->isActive(),
+                'banMessage' => $targetUser->getBanMessage()
+            ]
+        ]);
+    }
+
+    #[Route('/admin/users/banned', name: 'app_admin_users_banned', methods: ['GET'])]
+    public function getBannedUsers(EntityManagerInterface $entityManager): JsonResponse
+    {
+        $user = $this->getUser();
+        
+        if (!$user) {
+            return new JsonResponse(['success' => false, 'message' => 'Debes estar autenticado'], 401);
+        }
+
+        // Verificar que el usuario es admin
+        if (!in_array('ROLE_ADMIN', $user->getRoles())) {
+            return new JsonResponse(['success' => false, 'message' => 'No tienes permisos de administrador'], 403);
+        }
+
+        try {
+            $userRepository = $entityManager->getRepository(User::class);
+            $bannedUsers = $userRepository->createQueryBuilder('u')
+                ->where('u.isActive = :isActive')
+                ->setParameter('isActive', false)
+                ->orderBy('u.createdAt', 'DESC')
+                ->getQuery()
+                ->getResult();
+
+            $users = [];
+            foreach ($bannedUsers as $userObj) {
+                $users[] = [
+                    'id' => $userObj->getId(),
+                    'username' => $userObj->getUsername(),
+                    'email' => $userObj->getEmail(),
+                    'profileImage' => $userObj->getProfileImage(),
+                    'status' => $userObj->getStatus(),
+                    'createdAt' => $userObj->getCreatedAt() ? $userObj->getCreatedAt()->format('Y-m-d H:i:s') : null,
+                    'lastSeenAt' => $userObj->getLastSeenAt() ? $userObj->getLastSeenAt()->format('Y-m-d H:i:s') : null,
+                ];
+            }
+
+            return new JsonResponse([
+                'success' => true,
+                'users' => $users,
+                'count' => count($users)
+            ]);
+        } catch (\Exception $e) {
+            error_log('Error en getBannedUsers: ' . $e->getMessage());
+            return new JsonResponse([
+                'success' => false,
+                'message' => 'Error al obtener usuarios baneados: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    #[Route('/admin/users/unban/{userId}', name: 'app_admin_unban_user', methods: ['POST'])]
+    public function unbanUser(int $userId, EntityManagerInterface $entityManager, CacheInterface $cache): JsonResponse
+    {
+        $user = $this->getUser();
+        
+        if (!$user) {
+            return new JsonResponse(['success' => false, 'message' => 'Debes estar autenticado'], 401);
+        }
+
+        // Verificar que el usuario es admin
+        if (!in_array('ROLE_ADMIN', $user->getRoles())) {
+            return new JsonResponse(['success' => false, 'message' => 'No tienes permisos de administrador'], 403);
+        }
+
+        $userRepository = $entityManager->getRepository(User::class);
+        $targetUser = $userRepository->find($userId);
+
+        if (!$targetUser) {
+            return new JsonResponse(['success' => false, 'message' => 'Usuario no encontrado'], 404);
+        }
+
+        if ($targetUser->isActive()) {
+            return new JsonResponse([
+                'success' => false,
+                'message' => 'El usuario ya está activo (no está baneado)'
+            ], 400);
+        }
+
+        // Desbanear usuario (activar cuenta)
+        $targetUser->setIsActive(true);
+        $targetUser->setBanMessage(null); // Limpiar mensaje de ban
+        $entityManager->persist($targetUser);
+        
+        // Registrar en historial
+        $unbanHistory = new UserBanHistory();
+        $unbanHistory->setUser($targetUser);
+        $unbanHistory->setActionType('unban');
+        $unbanHistory->setMessage('Usuario desbaneado');
+        $unbanHistory->setPerformedBy($user->getId());
+        $entityManager->persist($unbanHistory);
+        
+        $entityManager->flush();
+
+        // Invalidar caché de usuarios activos
+        $cache->delete('admin_active_users');
+
+        return new JsonResponse([
+            'success' => true,
+            'message' => 'Usuario desbaneado correctamente',
+            'user' => [
+                'id' => $targetUser->getId(),
+                'username' => $targetUser->getUsername(),
+                'email' => $targetUser->getEmail(),
                 'isActive' => $targetUser->isActive()
             ]
         ]);
@@ -250,7 +379,7 @@ class AdminController extends AbstractController
             return new JsonResponse(['success' => false, 'message' => 'Usuario no encontrado'], 404);
         }
 
-        // Invalidar todas las sesiones del usuario (marcar como offline)
+        // IMPORTANTE: Primero marcar como offline, luego eliminar sesiones
         $activityRepository = $entityManager->getRepository(\App\Entity\UserActivity::class);
         $activity = $activityRepository->findByUser($userId);
         
@@ -259,31 +388,42 @@ class AdminController extends AbstractController
             $activity->setCurrentGame(null);
             $activity->setCurrentPage(null);
             $entityManager->persist($activity);
-            $entityManager->flush();
         }
+        
+        // Registrar en historial
+        $kickHistory = new UserBanHistory();
+        $kickHistory->setUser($targetUser);
+        $kickHistory->setActionType('kick');
+        $kickHistory->setMessage('Usuario expulsado de la sesión');
+        $kickHistory->setPerformedBy($user->getId());
+        $entityManager->persist($kickHistory);
+        
+        $entityManager->flush();
 
-        // Intentar invalidar la sesión del usuario eliminando sesiones de la base de datos
-        // Symfony guarda el user ID serializado en los datos de la sesión
+        // Eliminar TODAS las sesiones del usuario de la base de datos
+        // Esto asegura que el usuario no pueda seguir usando la app
         try {
             $connection = $entityManager->getConnection();
             
             // Buscar y eliminar sesiones que contengan el ID del usuario
             // El formato puede variar, así que buscamos diferentes patrones
             $userIdPattern = '%"id";i:' . $userId . ';%';
-            $connection->executeStatement(
+            $deleted1 = $connection->executeStatement(
                 "DELETE FROM sessions WHERE sess_data LIKE ?",
                 [$userIdPattern]
             );
             
             // También intentar con el formato de serialización alternativo
             $userIdPattern2 = '%s:' . strlen((string)$userId) . ':"' . $userId . '"%';
-            $connection->executeStatement(
+            $deleted2 = $connection->executeStatement(
                 "DELETE FROM sessions WHERE sess_data LIKE ?",
                 [$userIdPattern2]
             );
+            
+            error_log("Kick usuario ID $userId: Eliminadas sesiones (patrón 1: $deleted1, patrón 2: $deleted2)");
         } catch (\Exception $e) {
-            // Si la tabla sessions no existe o hay un error, no es crítico
-            // El usuario se desconectará en su próximo request cuando el listener detecte que está offline
+            // Si la tabla sessions no existe o hay un error, loggear pero continuar
+            // El listener detectará que está offline y lo redirigirá
             error_log('No se pudo invalidar sesión directamente: ' . $e->getMessage());
         }
 

@@ -116,6 +116,45 @@ final class HomeController extends AbstractController
         return $response;
     }
 
+    #[Route('/api/user/status', name: 'app_user_status', methods: ['GET'])]
+    public function getUserStatus(EntityManagerInterface $entityManager, UserActivityRepository $activityRepository): JsonResponse
+    {
+        $user = $this->getUser();
+        
+        if (!$user) {
+            return new JsonResponse([
+                'success' => false,
+                'authenticated' => false,
+                'message' => 'No autenticado'
+            ], 401);
+        }
+
+        // Refrescar el usuario desde la BD para obtener el estado actualizado
+        $userRepository = $entityManager->getRepository(\App\Entity\User::class);
+        $freshUser = $userRepository->find($user->getId());
+        
+        if (!$freshUser) {
+            return new JsonResponse([
+                'success' => false,
+                'authenticated' => false,
+                'message' => 'Usuario no encontrado'
+            ], 404);
+        }
+
+        // Verificar estado de actividad
+        $activity = $activityRepository->findByUser($freshUser->getId());
+        $isOnline = $activity ? $activity->isOnline() : false;
+
+        return new JsonResponse([
+            'success' => true,
+            'authenticated' => true,
+            'isActive' => $freshUser->isActive(),
+            'isOnline' => $isOnline,
+            'userId' => $freshUser->getId(),
+            'username' => $freshUser->getUsername()
+        ]);
+    }
+
     #[Route('/game/toggle-like/{gameId}', name: 'app_game_toggle_like', methods: ['POST'])]
     public function toggleLike(int $gameId, EntityManagerInterface $entityManager): JsonResponse
     {
@@ -228,6 +267,26 @@ final class HomeController extends AbstractController
         ]);
     }
 
+    #[Route('/api/game/find-by-slug/{slug}', name: 'app_game_find_by_slug', methods: ['GET'])]
+    public function findGameBySlug(string $slug, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $gameRepository = $entityManager->getRepository(Game::class);
+        $game = $gameRepository->findOneBy(['slug' => $slug]);
+
+        if (!$game) {
+            return new JsonResponse(['success' => false, 'message' => 'Juego no encontrado'], 404);
+        }
+
+        return new JsonResponse([
+            'success' => true,
+            'game' => [
+                'id' => $game->getId(),
+                'name' => $game->getName(),
+                'slug' => $game->getSlug()
+            ]
+        ]);
+    }
+
     #[Route('/api/game/save-score', name: 'app_game_save_score', methods: ['POST'])]
     public function saveScore(Request $request, EntityManagerInterface $entityManager, CacheInterface $cache): JsonResponse
     {
@@ -295,6 +354,11 @@ final class HomeController extends AbstractController
         $gameId = isset($data['game_id']) ? (int)$data['game_id'] : null;
         $page = $data['page'] ?? null;
         
+        // Si gameId es null pero la página contiene /game/play/, extraer el gameId de la página
+        if ($gameId === null && $page !== null && preg_match('/\/game\/play\/(\d+)/', $page, $matches)) {
+            $gameId = (int)$matches[1];
+        }
+        
         // Obtener IP y User Agent
         $ipAddress = $request->getClientIp();
         $userAgent = $request->headers->get('User-Agent');
@@ -314,7 +378,8 @@ final class HomeController extends AbstractController
         // Debug en desarrollo
         if ($_ENV['APP_ENV'] === 'dev') {
             $gameName = $activity->getCurrentGame() ? $activity->getCurrentGame()->getName() : 'ninguno';
-            error_log("🔄 API updateActivity - Usuario: {$user->getUsername()} (ID: {$user->getId()}), Página: $page, Juego: $gameName (ID: " . ($gameId ?: 'null') . ")");
+            $savedGameId = $activity->getCurrentGame() ? $activity->getCurrentGame()->getId() : 'null';
+            error_log("🔄 API updateActivity - Usuario: {$user->getUsername()} (ID: {$user->getId()}), Página: $page, Juego: $gameName (ID: $savedGameId), isOnline: " . ($activity->isOnline() ? 'true' : 'false'));
         }
 
         return new JsonResponse([

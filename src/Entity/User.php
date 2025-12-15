@@ -3,6 +3,7 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -61,6 +62,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(name: 'created_at', type: 'datetime', options: ['default' => 'CURRENT_TIMESTAMP'])]
     private ?\DateTimeInterface $createdAt = null;
+
+    #[ORM\Column(name: 'ban_message', type: Types::TEXT, nullable: true)]
+    private ?string $banMessage = null;
 
     public function __construct()
     {
@@ -260,6 +264,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $data["\0".self::class."\0password"] = hash('crc32c', $this->password);
 
         return $data;
+    }
+
+    public function getBanMessage(): ?string
+    {
+        return $this->banMessage;
+    }
+
+    public function setBanMessage(?string $banMessage): static
+    {
+        $this->banMessage = $banMessage;
+        return $this;
     }
 
     #[\Deprecated]

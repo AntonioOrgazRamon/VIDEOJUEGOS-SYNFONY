@@ -469,13 +469,8 @@ function checkIfKicked() {
     .then(response => {
         // Verificar header especial
         if (response.headers.get('X-User-Kicked') === 'true') {
-            // Usuario fue kickeado, redirigir al login
-            if (typeof window.showInfo === 'function') {
-                window.showInfo('Has sido desconectado por un administrador');
-            }
-            setTimeout(() => {
-                window.location.href = '/login?kicked=1';
-            }, 1000);
+            // Usuario fue kickeado, redirigir a página de kicked
+            window.location.href = '/kicked';
             return;
         }
         
@@ -483,13 +478,8 @@ function checkIfKicked() {
     })
     .then(data => {
         if (data && data.kicked === true) {
-            // Usuario fue kickeado
-            if (typeof window.showInfo === 'function') {
-                window.showInfo('Has sido desconectado por un administrador');
-            }
-            setTimeout(() => {
-                window.location.href = '/login?kicked=1';
-            }, 1000);
+            // Usuario fue kickeado, redirigir a página de kicked
+            window.location.href = '/kicked';
         }
     })
     .catch(error => {

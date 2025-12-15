@@ -1,0 +1,954 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Amigos{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .friends-container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        .friends-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .friends-header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .friends-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid var(--color-border);
+        }
+
+        .friends-tab {
+            padding: 15px 30px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 1.1em;
+            color: var(--color-text-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .friends-tab.active {
+            color: var(--color-primary);
+            border-bottom-color: var(--color-primary);
+        }
+
+        .friends-tab:hover {
+            color: var(--color-primary);
+        }
+
+        .friends-content {
+            display: none;
+        }
+
+        .friends-content.active {
+            display: block;
+        }
+
+        .search-box {
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid var(--color-border);
+            border-radius: 10px;
+            font-size: 1.1em;
+            background: var(--color-card);
+            color: var(--color-text);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 2px 20px rgba(0,0,0,0.15);
+        }
+
+        .search-box input::placeholder {
+            color: var(--color-text-secondary);
+            opacity: 0.7;
+        }
+
+        .user-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .user-card {
+            background: var(--color-card);
+            border: 2px solid var(--color-border);
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .user-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .user-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .user-info {
+            flex: 1;
+        }
+
+        .user-name {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+
+        .user-email {
+            color: var(--color-text-secondary);
+            font-size: 0.9em;
+        }
+
+        .user-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-action {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: var(--color-primary);
+            color: white;
+        }
+
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--color-border);
+            color: var(--color-text);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--color-text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="friends-container">
+    <div class="friends-header">
+        <h1>👥 Amigos</h1>
+        <p>Gestiona tus amistades y juega con ellos</p>
+    </div>
+
+    <div class="friends-tabs">
+        <button class="friends-tab active" onclick="switchTab('friends')">Amigos</button>
+        <button class="friends-tab" onclick="switchTab('pending')">Solicitudes</button>
+        <button class="friends-tab" onclick="switchTab('search')">Buscar Usuarios</button>
+        <button class="friends-tab" onclick="switchTab('invitations')" id="invitationsTabBtn">
+            Invitaciones de Juego
+            <span id="invitationsBadge" style="background: #f44336; color: white; border-radius: 50%; padding: 2px 6px; font-size: 0.8em; margin-left: 5px; display: none;">0</span>
+        </button>
+    </div>
+
+    <!-- Tab: Amigos -->
+    <div id="friendsTab" class="friends-content active">
+        <div class="user-list" id="friendsList">
+            <div class="empty-state">
+                <div class="empty-state-icon">👤</div>
+                <p>Cargando amigos...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab: Solicitudes -->
+    <div id="pendingTab" class="friends-content">
+        <h2>Solicitudes Recibidas</h2>
+        <div class="user-list" id="pendingList">
+            <div class="empty-state">
+                <div class="empty-state-icon">📬</div>
+                <p>Cargando solicitudes...</p>
+            </div>
+        </div>
+
+        <h2 style="margin-top: 40px;">Solicitudes Enviadas</h2>
+        <div class="user-list" id="sentList">
+            <div class="empty-state">
+                <div class="empty-state-icon">📤</div>
+                <p>Cargando solicitudes enviadas...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab: Invitaciones de Juego -->
+    <div id="invitationsTab" class="friends-content">
+        <h2>Invitaciones Pendientes</h2>
+        <div class="user-list" id="invitationsList">
+            <div class="empty-state">
+                <div class="empty-state-icon">🎮</div>
+                <p>Cargando invitaciones...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab: Buscar -->
+    <div id="searchTab" class="friends-content">
+        <div class="search-box">
+            <input 
+                type="text" 
+                id="searchInput" 
+                placeholder="🔍 Buscar por nombre de usuario o email... (mínimo 2 caracteres)" 
+                onkeyup="searchUsers(this.value)"
+                autocomplete="off"
+            >
+        </div>
+        <div class="user-list" id="searchResults">
+            <div class="empty-state">
+                <div class="empty-state-icon">🔍</div>
+                <p>Escribe para buscar usuarios...</p>
+                <p style="font-size: 0.9em; margin-top: 10px; opacity: 0.7;">Escribe al menos 2 caracteres para comenzar la búsqueda</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function switchTab(tab) {
+        document.querySelectorAll('.friends-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.friends-content').forEach(c => c.classList.remove('active'));
+        
+        event.target.classList.add('active');
+        document.getElementById(tab + 'Tab').classList.add('active');
+        
+        // Solo cargar si es necesario (fuerza actualización al cambiar de pestaña)
+        if (tab === 'friends') loadFriends(true);
+        if (tab === 'pending') loadPendingRequests();
+        if (tab === 'invitations') loadGameInvitations();
+    }
+
+    async function loadGameInvitations() {
+        try {
+            console.log('📥 Cargando invitaciones de juego...');
+            const response = await fetch('/api/game-room/invitations', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+            
+            console.log('📥 Status de respuesta:', response.status);
+            
+            if (!response.ok) {
+                console.error('❌ Error HTTP al cargar invitaciones:', response.status);
+                return;
+            }
+            
+            const data = await response.json();
+            console.log('📥 Datos de invitaciones recibidos:', data);
+            
+            const list = document.getElementById('invitationsList');
+            const badge = document.getElementById('invitationsBadge');
+            
+            if (!list) {
+                console.warn('⚠️ No se encontró el elemento invitationsList');
+                return;
+            }
+            
+            // Actualizar contador
+            const currentCount = (data.success && data.invitations && Array.isArray(data.invitations)) ? data.invitations.length : 0;
+            console.log('📊 Invitaciones encontradas:', currentCount);
+            lastInvitationsCount = currentCount;
+            
+            if (currentCount > 0) {
+                // Solo actualizar el HTML si estamos en la pestaña de invitaciones o si el badge cambió
+                const isInvitationsTabActive = document.getElementById('invitationsTab')?.classList.contains('active');
+                console.log('📋 Pestaña de invitaciones activa:', isInvitationsTabActive);
+                
+                if (isInvitationsTabActive) {
+                    list.innerHTML = data.invitations.map(inv => `
+                        <div class="user-card" style="border: 2px solid #4CAF50; background: rgba(76, 175, 80, 0.1);">
+                            <img src="/${inv.inviter.profileImage || 'images/default_profile.svg'}" alt="${inv.inviter.username}" class="user-avatar" onerror="this.onerror=null; this.src='/images/default_profile.svg'">
+                            <div class="user-info">
+                                <div class="user-name">🎮 ${escapeHtml(inv.inviter.username)}</div>
+                                <div class="user-email" style="font-weight: bold; color: #4CAF50;">Te invita a jugar: ${escapeHtml(inv.game.name)}</div>
+                                <div style="font-size: 0.8em; color: var(--color-text-secondary); margin-top: 5px;">
+                                    ${new Date(inv.createdAt).toLocaleString('es-ES')}
+                                </div>
+                            </div>
+                            <div class="user-actions">
+                                <button class="btn-action btn-success" onclick="acceptGameInvitation(${inv.id}, ${inv.roomId})">✅ Aceptar</button>
+                                <button class="btn-action btn-danger" onclick="rejectGameInvitation(${inv.id})">❌ Rechazar</button>
+                            </div>
+                        </div>
+                    `).join('');
+                    console.log('✅ Invitaciones renderizadas en la lista');
+                }
+                
+                if (badge) {
+                    const badgeCount = parseInt(badge.textContent) || 0;
+                    if (badgeCount !== currentCount) {
+                        badge.textContent = currentCount;
+                        badge.style.display = 'inline-block';
+                        console.log('✅ Badge actualizado:', currentCount);
+                    }
+                }
+            } else {
+                const isInvitationsTabActive = document.getElementById('invitationsTab')?.classList.contains('active');
+                if (isInvitationsTabActive) {
+                    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎮</div><p>No hay invitaciones pendientes</p></div>';
+                }
+                if (badge) {
+                    badge.style.display = 'none';
+                }
+                console.log('ℹ️ No hay invitaciones pendientes');
+            }
+        } catch (error) {
+            console.error('❌ Error al cargar invitaciones:', error);
+            console.error('❌ Stack:', error.stack);
+        }
+    }
+
+    async function acceptGameInvitation(invitationId, roomId) {
+        try {
+            console.log('✅ Aceptando invitación:', invitationId, 'Sala:', roomId);
+            const response = await fetch(`/api/game-room/invitation/${invitationId}/accept`, { method: 'POST' });
+            const data = await response.json();
+            
+            console.log('📥 Respuesta de aceptar:', data);
+            
+            if (data.success) {
+                alert('✅ Invitación aceptada! Redirigiendo a la sala...');
+                window.location.href = `/game-room/${data.roomId || roomId}`;
+            } else {
+                alert(data.message || 'Error al aceptar invitación');
+                loadGameInvitations();
+            }
+        } catch (error) {
+            console.error('❌ Error al aceptar invitación:', error);
+            alert('Error al aceptar invitación');
+        }
+    }
+
+    async function rejectGameInvitation(invitationId) {
+        if (!confirm('¿Estás seguro de que quieres rechazar esta invitación?')) return;
+        
+        try {
+            const response = await fetch(`/api/game-room/invitation/${invitationId}/reject`, { method: 'POST' });
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Invitación rechazada');
+                loadGameInvitations();
+            } else {
+                alert(data.message || 'Error al rechazar invitación');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al rechazar invitación');
+        }
+    }
+
+    let lastFriendsHash = null; // Hash para comparar si los amigos han cambiado
+    let isUpdatingFriends = false;
+    let currentFriendsData = []; // Guardar datos actuales
+    
+    async function loadFriends(forceUpdate = false) {
+        // Evitar actualizaciones simultáneas
+        if (isUpdatingFriends && !forceUpdate) {
+            return;
+        }
+        
+        try {
+            isUpdatingFriends = true;
+            const response = await fetch('/api/friends/list');
+            const data = await response.json();
+            
+            const list = document.getElementById('friendsList');
+            if (!list) {
+                isUpdatingFriends = false;
+                return;
+            }
+            
+            // Crear un hash de los amigos para comparar
+            const friendsHash = data.success && data.friends ? 
+                JSON.stringify(data.friends.map(f => ({ id: f.id, username: f.username })).sort((a, b) => a.id - b.id)) : 
+                'empty';
+            
+            // Solo actualizar si el hash cambió o si es una actualización forzada
+            if (friendsHash !== lastFriendsHash || forceUpdate) {
+                lastFriendsHash = friendsHash;
+                
+                if (data.success && data.friends.length > 0) {
+                    // Guardar datos actuales
+                    currentFriendsData = data.friends;
+                    
+                    // Usar reconciliación: solo actualizar elementos que cambiaron
+                    updateFriendsList(list, data.friends);
+                } else {
+                    // Solo actualizar si realmente no hay amigos
+                    if (list.querySelector('.empty-state') === null) {
+                        list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👤</div><p>No tienes amigos aún</p></div>';
+                    }
+                }
+            }
+            
+            isUpdatingFriends = false;
+        } catch (error) {
+            console.error('Error:', error);
+            isUpdatingFriends = false;
+        }
+    }
+    
+    // Función de reconciliación para actualizar solo lo necesario SIN reordenar
+    function updateFriendsList(container, newFriends) {
+        const existingCards = Array.from(container.querySelectorAll('[data-friend-id]'));
+        const existingIds = existingCards.map(card => parseInt(card.getAttribute('data-friend-id')));
+        const newIds = newFriends.map(f => f.id);
+        
+        // Crear un mapa de amigos por ID para acceso rápido
+        const friendsMap = new Map(newFriends.map(f => [f.id, f]));
+        
+        // PRIMERO: Eliminar amigos que ya no están (sin mover los demás)
+        existingCards.forEach(card => {
+            const friendId = parseInt(card.getAttribute('data-friend-id'));
+            if (!newIds.includes(friendId)) {
+                card.remove();
+            }
+        });
+        
+        // SEGUNDO: Actualizar elementos existentes SIN moverlos
+        existingCards.forEach(card => {
+            const friendId = parseInt(card.getAttribute('data-friend-id'));
+            const friend = friendsMap.get(friendId);
+            
+            if (friend) {
+                // Actualizar contenido sin tocar la estructura del DOM
+                const nameDiv = card.querySelector('.user-name');
+                const emailDiv = card.querySelector('.user-email');
+                
+                if (nameDiv && nameDiv.textContent !== friend.username) {
+                    nameDiv.textContent = friend.username;
+                }
+                if (emailDiv && emailDiv.textContent !== friend.email) {
+                    emailDiv.textContent = friend.email;
+                }
+                
+                // Actualizar imagen solo si cambió la URL
+                const existingImg = card.querySelector('.user-avatar');
+                if (existingImg) {
+                    const newImgSrc = `/${friend.profileImage || 'images/default_profile.svg'}`;
+                    const currentSrc = existingImg.src.replace(window.location.origin, '');
+                    if (currentSrc !== newImgSrc) {
+                        existingImg.src = newImgSrc;
+                    }
+                }
+            }
+        });
+        
+        // TERCERO: Añadir nuevos amigos al FINAL (sin reordenar los existentes)
+        newFriends.forEach(friend => {
+            const friendId = friend.id;
+            let card = container.querySelector(`[data-friend-id="${friendId}"]`);
+            
+            if (!card) {
+                // Crear nuevo card y añadirlo al final
+                card = document.createElement('div');
+                card.className = 'user-card';
+                card.setAttribute('data-friend-id', friend.id);
+                
+                const img = document.createElement('img');
+                img.src = `/${friend.profileImage || 'images/default_profile.svg'}`;
+                img.alt = friend.username;
+                img.className = 'user-avatar';
+                img.onerror = function() { this.onerror = null; this.src = '/images/default_profile.svg'; };
+                
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'user-info';
+                
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'user-name';
+                nameDiv.textContent = friend.username;
+                
+                const emailDiv = document.createElement('div');
+                emailDiv.className = 'user-email';
+                emailDiv.textContent = friend.email;
+                
+                infoDiv.appendChild(nameDiv);
+                infoDiv.appendChild(emailDiv);
+                
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'user-actions';
+                
+                const playBtn = document.createElement('button');
+                playBtn.className = 'btn-action btn-primary';
+                playBtn.textContent = '🎮 Jugar';
+                playBtn.onclick = () => playWithFriend(friend.id);
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'btn-action btn-danger';
+                removeBtn.textContent = 'Eliminar';
+                removeBtn.onclick = () => removeFriend(friend.friendshipId);
+                
+                actionsDiv.appendChild(playBtn);
+                actionsDiv.appendChild(removeBtn);
+                
+                card.appendChild(img);
+                card.appendChild(infoDiv);
+                card.appendChild(actionsDiv);
+                
+                // Añadir al final del contenedor
+                container.appendChild(card);
+            }
+        });
+        
+        // Eliminar empty-state si hay amigos
+        const emptyState = container.querySelector('.empty-state');
+        if (emptyState && newFriends.length > 0) {
+            emptyState.remove();
+        }
+    }
+
+    async function loadPendingRequests() {
+        try {
+            const response = await fetch('/api/friends/pending');
+            const data = await response.json();
+            
+            const pendingList = document.getElementById('pendingList');
+            if (data.success && data.pending.length > 0) {
+                pendingList.innerHTML = data.pending.map(req => `
+                    <div class="user-card">
+                        <img src="/${req.user.profileImage || 'images/default_profile.svg'}" alt="${req.user.username}" class="user-avatar" onerror="this.onerror=null; this.src='/images/default_profile.svg'">
+                        <div class="user-info">
+                            <div class="user-name">${escapeHtml(req.user.username)}</div>
+                            <div class="user-email">${escapeHtml(req.user.email)}</div>
+                        </div>
+                        <div class="user-actions">
+                            <button class="btn-action btn-success" onclick="acceptRequest(${req.id})">Aceptar</button>
+                            <button class="btn-action btn-danger" onclick="rejectRequest(${req.id})">Rechazar</button>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                pendingList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📬</div><p>No hay solicitudes pendientes</p></div>';
+            }
+
+            const sentList = document.getElementById('sentList');
+            if (data.success && data.sent.length > 0) {
+                sentList.innerHTML = data.sent.map(req => `
+                    <div class="user-card">
+                        <img src="/${req.user.profileImage || 'images/default_profile.svg'}" alt="${req.user.username}" class="user-avatar" onerror="this.onerror=null; this.src='/images/default_profile.svg'">
+                        <div class="user-info">
+                            <div class="user-name">${escapeHtml(req.user.username)}</div>
+                            <div class="user-email">${escapeHtml(req.user.email)}</div>
+                        </div>
+                        <div class="user-actions">
+                            <button class="btn-action btn-secondary" disabled>Pendiente</button>
+                            <button class="btn-action btn-danger" onclick="rejectRequest(${req.id})">Cancelar</button>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                sentList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📤</div><p>No has enviado solicitudes</p></div>';
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+
+    let searchTimeout;
+    let currentSearchResults = []; // Guardar resultados actuales para evitar re-renders
+    
+    async function searchUsers(query) {
+        clearTimeout(searchTimeout);
+        if (query.length < 2) {
+            document.getElementById('searchResults').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔍</div><p>Escribe para buscar usuarios...</p></div>';
+            currentSearchResults = [];
+            return;
+        }
+
+        searchTimeout = setTimeout(async () => {
+            try {
+                const response = await fetch(`/api/friends/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                const results = document.getElementById('searchResults');
+                if (data.success && data.users.length > 0) {
+                    // Guardar resultados actuales
+                    currentSearchResults = data.users;
+                    
+                    results.innerHTML = data.users.map(user => `
+                        <div class="user-card" data-user-id="${user.id}">
+                            <img src="/${user.profileImage || 'images/default_profile.svg'}" alt="${user.username}" class="user-avatar" onerror="this.onerror=null; this.src='/images/default_profile.svg'">
+                            <div class="user-info">
+                                <div class="user-name">${escapeHtml(user.username)}</div>
+                                <div class="user-email">${escapeHtml(user.email)}</div>
+                            </div>
+                            <div class="user-actions" data-user-actions="${user.id}">
+                                <button class="btn-action btn-success" onclick="sendFriendRequest(${user.id})" style="background: #4CAF50; color: white; font-weight: bold;">➕ Añadir Amigo</button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    results.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔍</div><p>No se encontraron usuarios</p></div>';
+                    currentSearchResults = [];
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }, 300);
+    }
+
+    async function sendFriendRequest(userId) {
+        // Encontrar el botón específico y deshabilitarlo inmediatamente para feedback visual
+        const actionsDiv = document.querySelector(`[data-user-actions="${userId}"]`);
+        const button = actionsDiv?.querySelector('button');
+        
+        if (button) {
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Enviando...';
+            button.style.opacity = '0.6';
+        }
+        
+        try {
+            const response = await fetch(`/api/friends/send-request/${userId}`, { method: 'POST' });
+            const data = await response.json();
+            
+            if (data.success) {
+                // Actualizar solo el botón de este usuario, sin re-renderizar toda la lista
+                if (actionsDiv && button) {
+                    button.disabled = true;
+                    button.textContent = '✅ Solicitud Enviada';
+                    button.style.background = '#9E9E9E';
+                    button.style.cursor = 'not-allowed';
+                    button.onclick = null; // Remover el onclick para evitar clics múltiples
+                }
+            } else {
+                // Restaurar el botón si hay error
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = originalText;
+                    button.style.opacity = '1';
+                }
+                alert(data.message || 'Error al enviar solicitud');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            // Restaurar el botón si hay error
+            if (button) {
+                button.disabled = false;
+                button.textContent = originalText;
+                button.style.opacity = '1';
+            }
+            alert('Error al enviar solicitud');
+        }
+    }
+
+    async function acceptRequest(friendshipId) {
+        try {
+            const response = await fetch(`/api/friends/accept/${friendshipId}`, { method: 'POST' });
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Solicitud aceptada');
+                loadPendingRequests();
+                loadFriends(true); // Forzar actualización
+            } else {
+                alert(data.message || 'Error al aceptar solicitud');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al aceptar solicitud');
+        }
+    }
+
+    async function rejectRequest(friendshipId) {
+        if (!confirm('¿Estás seguro?')) return;
+        
+        try {
+            const response = await fetch(`/api/friends/reject/${friendshipId}`, { method: 'POST' });
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Solicitud rechazada');
+                loadPendingRequests();
+            } else {
+                alert(data.message || 'Error al rechazar solicitud');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al rechazar solicitud');
+        }
+    }
+
+    async function removeFriend(friendshipId) {
+        if (!confirm('¿Estás seguro de que quieres eliminar a este amigo?')) return;
+        
+        try {
+            const response = await fetch(`/api/friends/remove/${friendshipId}`, { method: 'POST' });
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Amigo eliminado');
+                loadFriends(true); // Forzar actualización
+            } else {
+                alert(data.message || 'Error al eliminar amigo');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al eliminar amigo');
+        }
+    }
+
+    async function playWithFriend(friendId) {
+        try {
+            console.log('🎮 Iniciando invitación de juego para amigo ID:', friendId);
+            
+            // Buscar el juego de 4 en raya por slug
+            const gameResponse = await fetch('/api/game/find-by-slug/4-en-raya');
+            let gameId = 1; // Fallback
+            
+            if (gameResponse.ok) {
+                const gameData = await gameResponse.json();
+                console.log('📥 Datos del juego:', gameData);
+                if (gameData.success && gameData.game) {
+                    gameId = gameData.game.id;
+                    console.log('✅ Juego encontrado, ID:', gameId);
+                }
+            } else {
+                console.warn('⚠️ No se pudo obtener el juego, usando ID por defecto:', gameId);
+            }
+            
+            console.log('📤 Enviando invitación a /api/game-room/invite/' + friendId + '/' + gameId);
+            
+            // Enviar invitación
+            const inviteResponse = await fetch(`/api/game-room/invite/${friendId}/${gameId}`, { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            console.log('📥 Status de respuesta:', inviteResponse.status);
+            
+            // Clonar la respuesta para poder leerla múltiples veces si es necesario
+            const responseClone = inviteResponse.clone();
+            
+            if (!inviteResponse.ok) {
+                let errorMessage = `Error ${inviteResponse.status}`;
+                try {
+                    const errorData = await responseClone.json();
+                    errorMessage = errorData.message || errorMessage;
+                    console.error('❌ Error HTTP:', inviteResponse.status, errorData);
+                    
+                    // Si ya existe una invitación, redirigir a esa sala
+                    if (errorData.invitationId && inviteResponse.status === 400) {
+                        const roomId = errorData.roomId;
+                        if (roomId) {
+                            stopInvitationsPolling();
+                            alert('Ya tienes una invitación pendiente. Redirigiendo a la sala...');
+                            window.location.href = `/game-room/${roomId}`;
+                            return;
+                        } else {
+                            // Fallback: buscar el roomId de la invitación existente
+                            const existingInvResponse = await fetch('/api/game-room/invitations');
+                            if (existingInvResponse.ok) {
+                                const invData = await existingInvResponse.json();
+                                const existingInv = invData.invitations?.find(inv => inv.id === errorData.invitationId);
+                                if (existingInv?.roomId) {
+                                    stopInvitationsPolling();
+                                    alert('Ya tienes una invitación pendiente. Redirigiendo a la sala...');
+                                    window.location.href = `/game-room/${existingInv.roomId}`;
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    // Si falla el JSON, intentar leer como texto (pero solo una vez)
+                    try {
+                        const errorText = await inviteResponse.text();
+                        console.error('❌ Error al parsear respuesta:', errorText);
+                        errorMessage = errorText || errorMessage;
+                    } catch (textError) {
+                        console.error('❌ Error al leer respuesta:', textError);
+                    }
+                }
+                alert(errorMessage);
+                return;
+            }
+            
+            const data = await inviteResponse.json();
+            console.log('📥 Respuesta completa:', data);
+            
+            if (data.success) {
+                console.log('✅ Invitación enviada correctamente');
+                console.log('📍 Redirigiendo a sala:', data.invitation?.roomId || data.room?.id);
+                
+                const roomId = data.invitation?.roomId || data.room?.id;
+                if (roomId) {
+                    // Detener polling antes de redirigir
+                    stopInvitationsPolling();
+                    alert('✅ Invitación enviada! Redirigiendo a la sala...');
+                    window.location.href = `/game-room/${roomId}`;
+                } else {
+                    console.error('❌ No se recibió roomId en la respuesta');
+                    alert('✅ Invitación enviada, pero no se pudo obtener el ID de la sala. Revisa la consola.');
+                }
+            } else {
+                console.error('❌ Error en la respuesta:', data);
+                alert(data.message || 'Error al enviar invitación');
+            }
+        } catch (error) {
+            console.error('❌ Error al enviar invitación:', error);
+            console.error('❌ Stack:', error.stack);
+            alert('Error al enviar invitación: ' + error.message);
+        }
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Variables para evitar re-renders innecesarios
+    let lastInvitationsCount = 0;
+    let isUpdatingInvitations = false;
+    let invitationsIntervalId = null;
+    
+    // Cargar amigos al inicio
+    loadFriends();
+    
+    // Cargar invitaciones inmediatamente
+    loadGameInvitations();
+    
+    // Iniciar polling solo si no está ya activo
+    function startInvitationsPolling() {
+        if (invitationsIntervalId !== null) {
+            console.warn('⚠️ Polling de invitaciones ya está activo');
+            return;
+        }
+        
+        // Actualizar invitaciones cada 10 segundos (reducido para evitar sobrecarga)
+        invitationsIntervalId = setInterval(() => {
+            if (!isUpdatingInvitations) {
+                checkInvitationsUpdate();
+            }
+        }, 10000); // 10 segundos para reducir carga
+        
+        console.log('✅ Polling de invitaciones iniciado');
+    }
+    
+    // Detener polling
+    function stopInvitationsPolling() {
+        if (invitationsIntervalId !== null) {
+            clearInterval(invitationsIntervalId);
+            invitationsIntervalId = null;
+            console.log('⏹️ Polling de invitaciones detenido');
+        }
+    }
+    
+    // Iniciar polling cuando la página está visible
+    if (document.visibilityState === 'visible') {
+        startInvitationsPolling();
+    }
+    
+    // Pausar cuando la pestaña no está visible
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            startInvitationsPolling();
+        } else {
+            stopInvitationsPolling();
+        }
+    });
+    
+    // Función optimizada que solo actualiza si hay cambios
+    async function checkInvitationsUpdate() {
+        if (isUpdatingInvitations) {
+            return; // Ya hay una actualización en curso
+        }
+        
+        try {
+            isUpdatingInvitations = true;
+            const response = await fetch('/api/game-room/invitations', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin',
+                cache: 'no-cache'
+            });
+            
+            if (!response.ok) {
+                isUpdatingInvitations = false;
+                return;
+            }
+            
+            const data = await response.json();
+            const currentCount = (data.success && data.invitations && Array.isArray(data.invitations)) ? data.invitations.length : 0;
+            
+            // Solo actualizar si el número de invitaciones cambió
+            if (currentCount !== lastInvitationsCount) {
+                console.log(`🔄 Cambio detectado: ${lastInvitationsCount} -> ${currentCount} invitaciones`);
+                lastInvitationsCount = currentCount;
+                await loadGameInvitations();
+            }
+            
+            isUpdatingInvitations = false;
+        } catch (error) {
+            console.error('❌ Error al verificar invitaciones:', error);
+            isUpdatingInvitations = false;
+        }
+    }
+    
+    // Limpiar intervalos al salir de la página
+    window.addEventListener('beforeunload', () => {
+        stopInvitationsPolling();
+    });
+</script>
+{% endblock %}
+

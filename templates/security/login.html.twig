@@ -267,6 +267,18 @@
             </div>
         {% else %}
             <form method="post">
+                {% if kicked %}
+                    <div class="alert alert-danger">
+                        🚪 Has sido expulsado de la sesión. Por favor, inicia sesión nuevamente.
+                    </div>
+                {% endif %}
+                
+                {% if banned %}
+                    <div class="alert alert-danger">
+                        🚫 Tu cuenta ha sido baneada. No puedes acceder a la plataforma.
+                    </div>
+                {% endif %}
+                
                 {% if error %}
                     <div class="alert alert-danger">
                         {{ error.messageKey|trans(error.messageData, 'security') }}

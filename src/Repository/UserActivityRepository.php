@@ -145,8 +145,22 @@ class UserActivityRepository extends ServiceEntityRepository
             }
         }
         
+        // IMPORTANTE: Primero intentar extraer gameId de la página si no se proporcionó
+        if ($gameId === null && $page !== null && str_contains($page, '/game/play/')) {
+            if (preg_match('/\/game\/play\/(\d+)/', $page, $matches)) {
+                $gameId = (int)$matches[1];
+                if ($_ENV['APP_ENV'] === 'dev') {
+                    error_log("  🎮 gameId extraído de página: $gameId");
+                }
+            }
+        }
+        
         // Actualizar actividad (marca como online y actualiza timestamp)
+        // IMPORTANTE: Hacer esto DESPUÉS de extraer gameId para asegurar que se actualice correctamente
         $activity->updateActivity();
+        
+        // Asegurar explícitamente que isOnline sea true
+        $activity->setIsOnline(true);
         
         // Actualizar juego
         if ($gameId !== null) {
@@ -172,6 +186,7 @@ class UserActivityRepository extends ServiceEntityRepository
             }
         } else {
             // Si estamos en /game/play pero gameId es null, mantener el juego actual (no limpiar)
+            // IMPORTANTE: No limpiar el juego si ya está en uno
             if ($_ENV['APP_ENV'] === 'dev') {
                 $currentGame = $activity->getCurrentGame();
                 error_log("  🔄 En /game/play pero gameId es null, manteniendo juego actual: " . ($currentGame ? $currentGame->getName() : 'ninguno'));
@@ -199,17 +214,54 @@ class UserActivityRepository extends ServiceEntityRepository
             $this->getEntityManager()->persist($userObj);
         }
         
-        // Guardar cambios
+        // Asegurar que isOnline sea true antes de guardar
+        $activity->setIsOnline(true);
+        
+        // Guardar cambios con Doctrine
         $this->getEntityManager()->persist($activity);
+        if ($userObj) {
+            $this->getEntityManager()->persist($userObj);
+        }
         $this->getEntityManager()->flush();
+        
+        // IMPORTANTE: Forzar actualización directa en BD para asegurar que todo se guarde correctamente
+        // Esto evita problemas con Doctrine que pueden no persistir correctamente
+        $connection = $this->getEntityManager()->getConnection();
+        
+        // Construir la query de actualización
+        $updateFields = ['is_online = 1', 'last_activity_at = NOW()'];
+        $params = [];
+        
+        if ($gameId !== null) {
+            $updateFields[] = 'current_game_id = ?';
+            $params[] = $gameId;
+        } else {
+            // Si no hay gameId pero estamos en /game/play/, mantener el juego actual
+            if ($page !== null && str_contains($page, '/game/play/')) {
+                // No actualizar current_game_id, mantener el actual
+            } else {
+                // Si no estamos en un juego, limpiar current_game_id
+                $updateFields[] = 'current_game_id = NULL';
+            }
+        }
+        
+        if ($page !== null) {
+            $updateFields[] = 'current_page = ?';
+            $params[] = $page;
+        }
+        
+        $params[] = $userId; // Para el WHERE
+        
+        $sql = "UPDATE user_activity SET " . implode(', ', $updateFields) . " WHERE user_id = ?";
+        $connection->executeStatement($sql, $params);
         
         // Debug en desarrollo
         if ($_ENV['APP_ENV'] === 'dev') {
             $gameName = $activity->getCurrentGame() ? $activity->getCurrentGame()->getName() : 'ninguno';
-            $gameId = $activity->getCurrentGame() ? $activity->getCurrentGame()->getId() : 'null';
+            $savedGameId = $activity->getCurrentGame() ? $activity->getCurrentGame()->getId() : 'null';
             $isOnline = $activity->isOnline() ? 'ONLINE' : 'OFFLINE';
             $lastActivity = $activity->getLastActivityAt() ? $activity->getLastActivityAt()->format('Y-m-d H:i:s') : 'N/A';
-            error_log("📝 Actividad actualizada - Usuario: {$userObj->getUsername()} (ID: $userId), Estado: $isOnline, Página: $page, Juego: $gameName (ID: $gameId), Última actividad: $lastActivity");
+            error_log("📝 Actividad actualizada - Usuario: {$userObj->getUsername()} (ID: $userId), Estado: $isOnline, Página: $page, Juego: $gameName (ID: $savedGameId), Última actividad: $lastActivity");
         }
         
         return $activity;

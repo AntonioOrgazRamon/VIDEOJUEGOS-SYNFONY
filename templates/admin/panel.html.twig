@@ -24,6 +24,12 @@
             <div class="users-list-header">
                 <h2>Usuarios Activos en Tiempo Real</h2>
                 <div style="display: flex; gap: 10px;">
+                    <button class="btn-refresh" onclick="toggleBannedUsers()" title="Ver usuarios baneados" id="btn-banned-users" style="background: #ff6b6b; font-size: 12px; padding: 8px 15px;">
+                        🚫 Ver Baneados
+                    </button>
+                    <button class="btn-refresh" onclick="toggleBanAppeals()" title="Ver apelaciones de ban" id="btn-ban-appeals" style="background: #ffc107; font-size: 12px; padding: 8px 15px; color: #1a1a2e;">
+                        📝 Apelaciones
+                    </button>
                     <button class="btn-refresh" onclick="debugActivity()" title="Ver información de debug" style="background: #666F88; font-size: 12px; padding: 8px 15px;">
                         🔍 Debug
                     </button>
@@ -35,6 +41,32 @@
             
             <div id="users-list" class="users-list">
                 <!-- Los usuarios se cargarán aquí -->
+            </div>
+            
+            <!-- Sección de usuarios baneados (oculta por defecto) -->
+            <div id="banned-users-section" style="display: none; margin-top: 40px;">
+                <div class="users-list-header">
+                    <h2>🚫 Usuarios Baneados</h2>
+                    <button class="btn-refresh" onclick="loadBannedUsers()" title="Actualizar lista de baneados">
+                        🔄 Actualizar
+                    </button>
+                </div>
+                <div id="banned-users-list" class="users-list">
+                    <!-- Los usuarios baneados se cargarán aquí -->
+                </div>
+            </div>
+            
+            <!-- Sección de apelaciones de ban (oculta por defecto) -->
+            <div id="ban-appeals-section" style="display: none; margin-top: 40px;">
+                <div class="users-list-header">
+                    <h2>📝 Apelaciones de Ban</h2>
+                    <button class="btn-refresh" onclick="loadBanAppeals()" title="Actualizar apelaciones">
+                        🔄 Actualizar
+                    </button>
+                </div>
+                <div id="ban-appeals-list" class="users-list">
+                    <!-- Las apelaciones se cargarán aquí -->
+                </div>
             </div>
         </div>
     </div>
@@ -281,6 +313,36 @@
         transform: translateY(-2px);
     }
 
+    .btn-unban {
+        background: #00ff88;
+        color: #1a1a2e;
+    }
+
+    .btn-unban:hover {
+        background: #00cc6a;
+        transform: translateY(-2px);
+    }
+
+    .banned-user-card {
+        background: rgba(255, 71, 87, 0.1);
+        border: 1px solid rgba(255, 71, 87, 0.3);
+    }
+
+    .banned-user-card:hover {
+        background: rgba(255, 71, 87, 0.15);
+    }
+
+    .banned-badge {
+        background: rgba(255, 71, 87, 0.3);
+        color: #ff4757;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        display: inline-block;
+        margin-left: 10px;
+    }
+
     .users-list.loading {
         display: flex;
         justify-content: center;
@@ -523,7 +585,7 @@
                     <img src="${user.profileImage || '/images/default_profile.svg'}" 
                          alt="${user.username}" 
                          class="user-avatar"
-                         onerror="this.src='/images/default_profile.svg'">
+                         onerror="this.onerror=null; this.src='/images/default_profile.svg'">
                     <div class="user-info">
                         <h3 class="user-name">${escapeHtml(user.username)}</h3>
                         <div class="user-status">
@@ -624,11 +686,225 @@
     }
 
     function banUser(userId, username) {
-        if (!confirm(`¿Estás seguro de que quieres BANEAR a ${username}? Esta acción no se puede deshacer fácilmente.`)) {
+        // Crear modal para ingresar mensaje de ban
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center;';
+        
+        const modalContent = document.createElement('div');
+        modalContent.style.cssText = 'background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 2.5rem; border-radius: 20px; max-width: 500px; width: 90%; border: 2px solid #ff4757; box-shadow: 0 8px 32px rgba(0,0,0,0.5);';
+        
+        modalContent.innerHTML = `
+            <h2 style="color: #ff4757; margin: 0 0 1.5rem 0; font-size: 1.5rem;">🚫 Banear Usuario</h2>
+            <p style="color: #a3a8b7; margin: 0 0 1.5rem 0;">¿Estás seguro de que quieres BANEAR a <strong>${escapeHtml(username)}</strong>?</p>
+            <p style="color: #a3a8b7; margin: 0 0 1rem 0; font-size: 0.875rem;">Mensaje opcional para el usuario (aparecerá en su pantalla de baneo):</p>
+            <textarea id="banMessageInput" placeholder="Ej: Has sido baneado por violar las reglas de la comunidad..." style="width: 100%; min-height: 100px; padding: 1rem; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; background: rgba(255,255,255,0.05); color: #fff; font-family: inherit; resize: vertical; margin-bottom: 1.5rem; font-size: 0.9375rem;" maxlength="1000"></textarea>
+            <div style="display: flex; gap: 10px;">
+                <button id="confirmBanBtn" style="flex: 1; padding: 0.9375rem; background: #ff4757; border: none; border-radius: 8px; color: white; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
+                    🚫 Confirmar Ban
+                </button>
+                <button id="cancelBanBtn" style="flex: 1; padding: 0.9375rem; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: #fff; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
+                    Cancelar
+                </button>
+            </div>
+        `;
+        
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+        
+        // Función para cerrar modal
+        const closeModal = () => {
+            document.body.removeChild(modal);
+        };
+        
+        // Event listeners
+        document.getElementById('cancelBanBtn').addEventListener('click', closeModal);
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+        
+        // Confirmar ban
+        document.getElementById('confirmBanBtn').addEventListener('click', function() {
+            const banMessage = document.getElementById('banMessageInput').value.trim();
+            const btn = document.getElementById('confirmBanBtn');
+            
+            btn.disabled = true;
+            btn.textContent = 'Baneando...';
+            
+            fetch(`/admin/users/ban/${userId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    banMessage: banMessage || null
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                closeModal();
+                if (data.success) {
+                    if (typeof window.showSuccess === 'function') {
+                        window.showSuccess(`Usuario ${username} baneado correctamente`);
+                    } else {
+                        alert(`✅ Usuario ${username} baneado correctamente`);
+                    }
+                    loadActiveUsers(false);
+                } else {
+                    if (typeof window.showError === 'function') {
+                        window.showError(data.message || 'Error al banear usuario');
+                    } else {
+                        alert('❌ ' + (data.message || 'Error al banear usuario'));
+                    }
+                }
+            })
+            .catch(error => {
+                closeModal();
+                console.error('Error al banear usuario:', error);
+                if (typeof window.showError === 'function') {
+                    window.showError('Error al banear usuario');
+                } else {
+                    alert('❌ Error al banear usuario');
+                }
+            });
+        });
+        
+        // Focus en el textarea
+        setTimeout(() => {
+            document.getElementById('banMessageInput').focus();
+        }, 100);
+    }
+
+    function refreshUsers() {
+        resetAndLoad();
+    }
+
+    let showingBannedUsers = false;
+
+    function toggleBannedUsers() {
+        showingBannedUsers = !showingBannedUsers;
+        const section = document.getElementById('banned-users-section');
+        const btn = document.getElementById('btn-banned-users');
+        
+        if (showingBannedUsers) {
+            section.style.display = 'block';
+            btn.textContent = '✅ Ocultar Baneados';
+            btn.style.background = '#00ff88';
+            btn.style.color = '#1a1a2e';
+            loadBannedUsers();
+        } else {
+            section.style.display = 'none';
+            btn.textContent = '🚫 Ver Baneados';
+            btn.style.background = '#ff6b6b';
+            btn.style.color = '#fff';
+        }
+    }
+
+    function loadBannedUsers() {
+        const container = document.getElementById('banned-users-list');
+        
+        container.innerHTML = `
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p>Cargando usuarios baneados...</p>
+            </div>
+        `;
+        
+        fetch('/admin/users/banned', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayBannedUsers(data.users);
+            } else {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <p>Error: ${escapeHtml(data.message || 'No se pudieron cargar los usuarios baneados')}</p>
+                        <button class="btn-refresh" onclick="loadBannedUsers()" style="margin-top: 20px;">Reintentar</button>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error al cargar usuarios baneados:', error);
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">❌</div>
+                    <p>Error al cargar usuarios baneados</p>
+                    <button class="btn-refresh" onclick="loadBannedUsers()" style="margin-top: 20px;">Reintentar</button>
+                </div>
+            `;
+        });
+    }
+
+    function displayBannedUsers(users) {
+        const container = document.getElementById('banned-users-list');
+        
+        if (users.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">✅</div>
+                    <p>No hay usuarios baneados</p>
+                </div>
+            `;
             return;
         }
 
-        fetch(`/admin/users/ban/${userId}`, {
+        container.innerHTML = users.map(user => `
+            <div class="user-card banned-user-card">
+                <div class="user-card-header">
+                    <img src="${user.profileImage || '/images/default_profile.svg'}" 
+                         alt="${user.username}" 
+                         class="user-avatar"
+                         onerror="this.onerror=null; this.src='/images/default_profile.svg'">
+                    <div class="user-info">
+                        <h3 class="user-name">
+                            ${escapeHtml(user.username)}
+                            <span class="banned-badge">BANEADO</span>
+                        </h3>
+                        <div class="user-status" style="color: #ff4757;">
+                            <span>❌ Usuario baneado</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="user-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Email:</span>
+                        <span class="detail-value">${escapeHtml(user.email)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Cuenta creada:</span>
+                        <span class="detail-value">${user.createdAt ? formatDate(user.createdAt) : 'N/A'}</span>
+                    </div>
+                    ${user.lastSeenAt ? `
+                    <div class="detail-item">
+                        <span class="detail-label">Última vez visto:</span>
+                        <span class="detail-value">${formatDate(user.lastSeenAt)}</span>
+                    </div>
+                    ` : ''}
+                </div>
+                <div class="user-actions">
+                    <button class="btn-action btn-unban" onclick="unbanUser(${user.id}, '${escapeHtml(user.username)}', '${escapeHtml(user.email)}')" style="width: 100%;">
+                        ✅ Desbanear
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function unbanUser(userId, username, email) {
+        if (!confirm(`¿Estás seguro de que quieres DESBANEAR a ${username} (${email})?`)) {
+            return;
+        }
+
+        fetch(`/admin/users/unban/${userId}`, {
             method: 'POST',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
@@ -638,25 +914,318 @@
         .then(data => {
             if (data.success) {
                 if (typeof window.showSuccess === 'function') {
-                    window.showSuccess(`Usuario ${username} baneado correctamente`);
+                    window.showSuccess(`Usuario ${username} desbaneado correctamente`);
+                } else {
+                    alert(`Usuario ${username} desbaneado correctamente`);
                 }
-                loadActiveUsers(false);
+                loadBannedUsers(); // Recargar lista de baneados
+                loadActiveUsers(false); // Recargar usuarios activos por si acaso
             } else {
                 if (typeof window.showError === 'function') {
-                    window.showError(data.message || 'Error al banear usuario');
+                    window.showError(data.message || 'Error al desbanear usuario');
+                } else {
+                    alert('Error: ' + (data.message || 'Error al desbanear usuario'));
                 }
             }
         })
         .catch(error => {
-            console.error('Error al banear usuario:', error);
+            console.error('Error al desbanear usuario:', error);
             if (typeof window.showError === 'function') {
-                window.showError('Error al banear usuario');
+                window.showError('Error al desbanear usuario');
+            } else {
+                alert('Error al desbanear usuario');
             }
         });
     }
 
-    function refreshUsers() {
-        resetAndLoad();
+    function formatDate(dateString) {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        return date.toLocaleString('es-ES', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    let showingBanAppeals = false;
+
+    function toggleBanAppeals() {
+        showingBanAppeals = !showingBanAppeals;
+        const section = document.getElementById('ban-appeals-section');
+        const btn = document.getElementById('btn-ban-appeals');
+        
+        if (showingBanAppeals) {
+            section.style.display = 'block';
+            btn.textContent = '✅ Ocultar Apelaciones';
+            btn.style.background = '#00ff88';
+            btn.style.color = '#1a1a2e';
+            loadBanAppeals();
+        } else {
+            section.style.display = 'none';
+            btn.textContent = '📝 Apelaciones';
+            btn.style.background = '#ffc107';
+            btn.style.color = '#1a1a2e';
+        }
+    }
+
+    function loadBanAppeals() {
+        const container = document.getElementById('ban-appeals-list');
+        
+        container.innerHTML = `
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p>Cargando apelaciones...</p>
+            </div>
+        `;
+        
+        fetch('/admin/ban-appeals', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayBanAppeals(data.appeals);
+            } else {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <p>Error: ${escapeHtml(data.message || 'No se pudieron cargar las apelaciones')}</p>
+                        <button class="btn-refresh" onclick="loadBanAppeals()" style="margin-top: 20px;">Reintentar</button>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error al cargar apelaciones:', error);
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">❌</div>
+                    <p>Error al cargar apelaciones</p>
+                    <button class="btn-refresh" onclick="loadBanAppeals()" style="margin-top: 20px;">Reintentar</button>
+                </div>
+            `;
+        });
+    }
+
+    function displayBanAppeals(appeals) {
+        const container = document.getElementById('ban-appeals-list');
+        
+        if (appeals.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">✅</div>
+                    <p>No hay apelaciones pendientes</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = appeals.map(appeal => `
+            <div class="user-card" style="max-width: 100%;">
+                <div class="user-card-header">
+                    <div class="user-info" style="width: 100%;">
+                        <h3 class="user-name">
+                            ${escapeHtml(appeal.username)} 
+                            <span style="font-size: 14px; color: #a3a8b7; font-weight: normal;">(${escapeHtml(appeal.email)})</span>
+                        </h3>
+                        <div class="user-status" style="color: #ffc107;">
+                            <span>⏳ Pendiente de revisión</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="user-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Mensaje de apelación:</span>
+                        <span class="detail-value" style="white-space: pre-wrap; word-break: break-word;">${escapeHtml(appeal.message)}</span>
+                    </div>
+                    ${appeal.banMessage ? `
+                    <div class="detail-item">
+                        <span class="detail-label">Motivo del ban:</span>
+                        <span class="detail-value" style="white-space: pre-wrap; word-break: break-word; color: #ff4757;">${escapeHtml(appeal.banMessage)}</span>
+                    </div>
+                    ` : ''}
+                    <div class="detail-item">
+                        <span class="detail-label">Fecha de apelación:</span>
+                        <span class="detail-value">${formatDate(appeal.createdAt)}</span>
+                    </div>
+                </div>
+                
+                <!-- Historial de Baneos/Kicks -->
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <button class="btn-refresh" onclick="toggleUserHistory(${appeal.userId}, ${appeal.id})" id="history-toggle-${appeal.id}" style="width: 100%; background: rgba(255,255,255,0.1); font-size: 12px; padding: 8px 15px; margin-bottom: 10px;">
+                        📜 Ver Historial de Baneos/Kicks
+                    </button>
+                    <div id="history-${appeal.id}" style="display: none; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 1rem; margin-top: 10px;">
+                        <div style="text-align: center; color: #a3a8b7; padding: 1rem;">
+                            <div class="spinner" style="width: 30px; height: 30px; margin: 0 auto 10px;"></div>
+                            <p style="margin: 0; font-size: 0.875rem;">Cargando historial...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <textarea id="response-${appeal.id}" placeholder="Respuesta opcional para el usuario..." style="width: 100%; min-height: 80px; padding: 10px; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; background: rgba(255,255,255,0.05); color: #fff; font-family: inherit; resize: vertical; margin-bottom: 10px;"></textarea>
+                </div>
+                <div class="user-actions">
+                    <button class="btn-action btn-unban" onclick="reviewAppeal(${appeal.id}, 'approve', ${appeal.userId})" style="flex: 1;">
+                        ✅ Aprobar y Desbanear
+                    </button>
+                    <button class="btn-action btn-ban" onclick="reviewAppeal(${appeal.id}, 'reject', ${appeal.userId})" style="flex: 1;">
+                        ❌ Rechazar
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function toggleUserHistory(userId, appealId) {
+        const historyDiv = document.getElementById(`history-${appealId}`);
+        const toggleBtn = document.getElementById(`history-toggle-${appealId}`);
+        
+        if (historyDiv.style.display === 'none' || !historyDiv.dataset.loaded) {
+            // Cargar historial
+            historyDiv.style.display = 'block';
+            historyDiv.innerHTML = `
+                <div style="text-align: center; color: #a3a8b7; padding: 1rem;">
+                    <div class="spinner" style="width: 30px; height: 30px; margin: 0 auto 10px;"></div>
+                    <p style="margin: 0; font-size: 0.875rem;">Cargando historial...</p>
+                </div>
+            `;
+            
+            fetch(`/admin/user/${userId}/ban-history`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayUserHistory(data.history, appealId);
+                    historyDiv.dataset.loaded = 'true';
+                    toggleBtn.textContent = '📜 Ocultar Historial';
+                } else {
+                    historyDiv.innerHTML = `
+                        <div style="text-align: center; color: #ff4757; padding: 1rem;">
+                            <p>Error al cargar historial</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                historyDiv.innerHTML = `
+                    <div style="text-align: center; color: #ff4757; padding: 1rem;">
+                        <p>Error al cargar historial</p>
+                    </div>
+                `;
+            });
+        } else {
+            // Ocultar historial
+            historyDiv.style.display = 'none';
+            toggleBtn.textContent = '📜 Ver Historial de Baneos/Kicks';
+        }
+    }
+
+    function displayUserHistory(history, appealId) {
+        const historyDiv = document.getElementById(`history-${appealId}`);
+        
+        if (history.length === 0) {
+            historyDiv.innerHTML = `
+                <div style="text-align: center; color: #a3a8b7; padding: 1rem;">
+                    <p style="margin: 0; font-size: 0.875rem;">No hay historial de baneos/kicks</p>
+                </div>
+            `;
+            return;
+        }
+
+        const actionLabels = {
+            'ban': '🚫 Baneado',
+            'kick': '🚪 Expulsado',
+            'unban': '✅ Desbaneado'
+        };
+
+        const actionColors = {
+            'ban': '#ff4757',
+            'kick': '#ffc107',
+            'unban': '#00ff88'
+        };
+
+        historyDiv.innerHTML = `
+            <div style="max-height: 300px; overflow-y: auto;">
+                ${history.map(entry => `
+                    <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; border-left: 3px solid ${actionColors[entry.actionType] || '#666F88'};">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <span style="color: ${actionColors[entry.actionType] || '#fff'}; font-weight: 600; font-size: 0.875rem;">
+                                ${actionLabels[entry.actionType] || entry.actionType}
+                            </span>
+                            <span style="color: #666F88; font-size: 0.75rem;">
+                                ${formatDate(entry.createdAt)}
+                            </span>
+                        </div>
+                        ${entry.message ? `
+                            <p style="color: #a3a8b7; margin: 0; font-size: 0.875rem; white-space: pre-wrap; word-break: break-word;">${escapeHtml(entry.message)}</p>
+                        ` : ''}
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    function reviewAppeal(appealId, action, userId) {
+        const responseTextarea = document.getElementById(`response-${appealId}`);
+        const response = responseTextarea ? responseTextarea.value.trim() : '';
+        
+        const actionText = action === 'approve' ? 'aprobar y desbanear' : 'rechazar';
+        if (!confirm(`¿Estás seguro de que quieres ${actionText} esta apelación?`)) {
+            return;
+        }
+
+        fetch(`/admin/ban-appeals/${appealId}/review`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                action: action,
+                response: response
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (typeof window.showSuccess === 'function') {
+                    window.showSuccess(data.message);
+                } else {
+                    alert('✅ ' + data.message);
+                }
+                loadBanAppeals(); // Recargar apelaciones
+                if (action === 'approve') {
+                    loadBannedUsers(); // Actualizar lista de baneados
+                }
+            } else {
+                if (typeof window.showError === 'function') {
+                    window.showError(data.message || 'Error al procesar apelación');
+                } else {
+                    alert('❌ ' + (data.message || 'Error al procesar apelación'));
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error al procesar apelación:', error);
+            if (typeof window.showError === 'function') {
+                window.showError('Error al procesar apelación');
+            } else {
+                alert('❌ Error al procesar apelación');
+            }
+        });
     }
 
     // Inicializar

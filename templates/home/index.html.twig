@@ -3,11 +3,67 @@
 {% block title %}Plataforma de Juegos{% endblock %}
 
 {% block body %}
+<style>
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.2); }
+    }
+</style>
 <script>
     // Establecer tema e idioma al cargar la página
     document.body.setAttribute('data-theme', '{{ themeMode }}');
     document.body.setAttribute('data-language', '{{ language }}');
     
+    // Variables globales para el badge
+    let lastBadgeCount = 0;
+    let isUpdatingBadge = false;
+    
+    // Función para cargar invitaciones de juego (global para que esté disponible en todas las páginas)
+    async function loadGameInvitationsBadge() {
+        if (isUpdatingBadge) return;
+        
+        try {
+            isUpdatingBadge = true;
+            const response = await fetch('/api/game-room/invitations', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+            
+            if (!response.ok) {
+                isUpdatingBadge = false;
+                return;
+            }
+            
+            const data = await response.json();
+            
+            const badge = document.getElementById('gameInvitationsBadge');
+            if (badge) {
+                const currentCount = (data.success && data.invitations && Array.isArray(data.invitations)) ? data.invitations.length : 0;
+                
+                // Solo actualizar si el número cambió
+                if (currentCount !== lastBadgeCount) {
+                    lastBadgeCount = currentCount;
+                    
+                    if (currentCount > 0) {
+                        badge.textContent = currentCount;
+                        badge.style.display = 'flex';
+                        // Añadir animación de pulso solo cuando hay cambios
+                        badge.style.animation = 'pulse 1s infinite';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                }
+            }
+            isUpdatingBadge = false;
+        } catch (error) {
+            console.error('Error al cargar badge de invitaciones:', error);
+            isUpdatingBadge = false;
+        }
+    }
+
     // Esperar a que app.js se cargue antes de usar sus funciones
     document.addEventListener('DOMContentLoaded', function() {
         // Las funciones showSuccess, showError, openSettings, etc. están en app.js
@@ -24,6 +80,32 @@
         if (typeof window.showWarning === 'undefined') {
             window.showWarning = function(msg) { alert('⚠ ' + msg); };
         }
+        
+        // Cargar badge de invitaciones en el header
+        loadGameInvitationsBadge();
+        // Actualizar cada 15 segundos (reducido para evitar sobrecarga)
+        let badgeIntervalId = setInterval(loadGameInvitationsBadge, 15000);
+        
+        // Pausar cuando la pestaña no está visible
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                if (!badgeIntervalId) {
+                    badgeIntervalId = setInterval(loadGameInvitationsBadge, 15000);
+                }
+            } else {
+                if (badgeIntervalId) {
+                    clearInterval(badgeIntervalId);
+                    badgeIntervalId = null;
+                }
+            }
+        });
+        
+        // Limpiar al salir
+        window.addEventListener('beforeunload', () => {
+            if (badgeIntervalId) {
+                clearInterval(badgeIntervalId);
+            }
+        });
     });
 </script>
 
@@ -40,6 +122,12 @@
                     </div>
                 </a>
                 <div class="header-actions">
+                    <a href="{{ path('app_friends') }}" class="header-icon" title="Amigos" aria-label="Amigos" id="friendsLink" style="text-decoration: none; color: inherit; display: flex; align-items: center; justify-content: center; position: relative;">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                        <span id="gameInvitationsBadge" style="position: absolute; top: -5px; right: -5px; background: #f44336; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: none; align-items: center; justify-content: center; font-weight: bold;">0</span>
+                    </a>
                     <button class="header-icon search-icon" title="Buscar" id="searchIcon" aria-label="Buscar juegos" type="button">
                         <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -839,65 +927,112 @@
                         
                         // Las funciones showSuccess, showError, etc. ya están definidas al inicio del body
                         
-                        // Actualizar estado del usuario
-                        const statusSelect = document.getElementById('statusSelect');
-                        if (statusSelect) {
-                            statusSelect.addEventListener('change', function() {
-                                const newStatus = this.value;
-                                fetch('{{ path('app_profile_update_status') }}', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'X-Requested-With': 'XMLHttpRequest'
-                                    },
-                                    body: JSON.stringify({ status: newStatus })
-                                })
-                                .then(response => {
-                                    if (!response.ok) {
-                                        throw new Error('HTTP error! status: ' + response.status);
-                                    }
-                                    return response.json();
-                                })
-                                .then(data => {
-                                    if (typeof window.debugLog === 'function') {
-                                        window.debugLog('Respuesta del servidor:', data);
-                                    }
-                                    if (data.success) {
-                                        // Actualizar badge visual
-                                        const statusBadge = document.getElementById('statusBadge');
-                                        if (statusBadge) {
-                                            statusBadge.className = 'badge bg-' + (newStatus === 'active' ? 'success' : (newStatus === 'away' ? 'warning' : 'secondary'));
-                                            statusBadge.textContent = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
+                        // Actualizar estado del usuario - se inicializará después de que el DOM esté completo
+                        function initStatusSelector() {
+                            const statusSelect = document.getElementById('statusSelect');
+                            if (statusSelect) {
+                                console.log('✅ Selector de estado encontrado, agregando listener...');
+                                // Guardar el valor inicial
+                                let previousStatus = statusSelect.value;
+                                
+                                statusSelect.addEventListener('change', function() {
+                                    const newStatus = this.value;
+                                    const oldStatus = previousStatus;
+                                    
+                                    console.log('🔄 Cambio de estado detectado:', oldStatus, '->', newStatus);
+                                    
+                                    // Deshabilitar el select mientras se procesa
+                                    this.disabled = true;
+                                    
+                                    fetch('{{ path('app_profile_update_status') }}', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'X-Requested-With': 'XMLHttpRequest'
+                                        },
+                                        body: JSON.stringify({ status: newStatus })
+                                    })
+                                    .then(response => {
+                                        console.log('📥 Respuesta recibida, status:', response.status);
+                                        if (!response.ok) {
+                                            throw new Error('HTTP error! status: ' + response.status);
                                         }
-                                        // Mostrar notificación de éxito
-                                        if (typeof window.showSuccess === 'function') {
-                                            window.showSuccess('Estado actualizado correctamente');
+                                        return response.json();
+                                    })
+                                    .then(data => {
+                                        console.log('📥 Datos recibidos:', data);
+                                        if (typeof window.debugLog === 'function') {
+                                            window.debugLog('Respuesta del servidor:', data);
+                                        }
+                                        
+                                        // Rehabilitar el select
+                                        this.disabled = false;
+                                        
+                                        if (data.success) {
+                                            // Actualizar el valor anterior
+                                            previousStatus = newStatus;
+                                            
+                                            // Actualizar badge visual
+                                            const statusBadge = document.getElementById('statusBadge');
+                                            if (statusBadge) {
+                                                statusBadge.className = 'badge bg-' + (newStatus === 'active' ? 'success' : (newStatus === 'away' ? 'warning' : 'secondary'));
+                                                statusBadge.textContent = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
+                                            }
+                                            
+                                            console.log('✅ Estado actualizado correctamente');
+                                            
+                                            // Mostrar notificación de éxito (silenciosa, sin alert)
+                                            if (typeof window.showSuccess === 'function') {
+                                                window.showSuccess('Estado actualizado correctamente');
+                                            } else {
+                                                console.log('Estado actualizado correctamente');
+                                            }
                                         } else {
-                                            console.error('showSuccess no disponible');
-                                            alert('Estado actualizado correctamente');
+                                            console.error('❌ Error del servidor:', data.message);
+                                            
+                                            // Revertir selección
+                                            this.value = oldStatus;
+                                            
+                                            if (typeof window.showError === 'function') {
+                                                window.showError('Error al actualizar el estado: ' + (data.message || 'Error desconocido'));
+                                            } else {
+                                                alert('Error al actualizar el estado: ' + (data.message || 'Error desconocido'));
+                                            }
                                         }
-                                    } else {
-                                        if (typeof window.showError === 'function') {
-                                            window.showError('Error al actualizar el estado: ' + (data.message || 'Error desconocido'));
-                                        } else {
-                                            alert('Error al actualizar el estado: ' + (data.message || 'Error desconocido'));
-                                        }
+                                    })
+                                    .catch(error => {
+                                        console.error('❌ Error en la petición:', error);
+                                        
+                                        // Rehabilitar el select
+                                        this.disabled = false;
+                                        
                                         // Revertir selección
-                                        this.value = '{{ app.user.status }}';
-                                    }
-                                })
-                                .catch(error => {
-                                    if (typeof window.debugError === 'function') {
-                                        window.debugError('Error:', error);
-                                    }
-                                    if (typeof window.showError === 'function') {
-                                        window.showError('Error al actualizar el estado: ' + error.message);
-                                    } else {
-                                        alert('Error al actualizar el estado: ' + error.message);
-                                    }
-                                    this.value = '{{ app.user.status }}';
+                                        this.value = oldStatus;
+                                        
+                                        if (typeof window.debugError === 'function') {
+                                            window.debugError('Error:', error);
+                                        }
+                                        if (typeof window.showError === 'function') {
+                                            window.showError('Error al actualizar el estado: ' + error.message);
+                                        } else {
+                                            alert('Error al actualizar el estado: ' + error.message);
+                                        }
+                                    });
                                 });
-                            });
+                                console.log('✅ Listener de cambio de estado agregado');
+                            } else {
+                                console.warn('⚠️ Selector de estado no encontrado, reintentando...');
+                                // Reintentar después de un breve delay
+                                setTimeout(initStatusSelector, 100);
+                            }
+                        }
+                        
+                        // Inicializar el selector de estado cuando el DOM esté listo
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', initStatusSelector);
+                        } else {
+                            // Si el DOM ya está cargado, intentar inmediatamente
+                            setTimeout(initStatusSelector, 50);
                         }
                         
                         // Subir imagen de perfil

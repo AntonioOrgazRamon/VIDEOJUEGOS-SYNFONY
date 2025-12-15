@@ -16,5 +16,86 @@
     </head>
     <body>
         {% block body %}{% endblock %}
+        
+        {% if app.user %}
+        <script>
+            // Verificar estado del usuario periódicamente para detectar kick/ban en tiempo real
+            (function() {
+                let statusCheckInterval;
+                let isChecking = false;
+                
+                function checkUserStatus() {
+                    // Evitar múltiples requests simultáneos
+                    if (isChecking) {
+                        return;
+                    }
+                    
+                    isChecking = true;
+                    
+                    fetch('/api/user/status', {
+                        method: 'GET',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin'
+                    })
+                    .then(response => {
+                        // Si la respuesta es 401 o 404, el usuario ya no está autenticado
+                        if (response.status === 401 || response.status === 404) {
+                            clearInterval(statusCheckInterval);
+                            window.location.href = '/kicked';
+                            return;
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        isChecking = false;
+                        
+                        if (!data || !data.success) {
+                            // Si no hay respuesta válida, puede ser que la sesión ya expiró
+                            // Esperar un poco antes de redirigir para evitar loops
+                            setTimeout(() => {
+                                if (window.location.pathname !== '/login' && window.location.pathname !== '/kicked') {
+                                    clearInterval(statusCheckInterval);
+                                    window.location.href = '/kicked';
+                                }
+                            }, 1000);
+                            return;
+                        }
+                        
+                        // Si el usuario no está activo (baneado)
+                        if (!data.isActive) {
+                            clearInterval(statusCheckInterval);
+                            // Solo redirigir si no estamos ya en la página de baneo
+                            if (window.location.pathname !== '/banned') {
+                                window.location.href = '/banned';
+                            }
+                            return;
+                        }
+                        
+                        // NO verificar isOnline aquí - el kick se maneja eliminando sesiones
+                        // Si el usuario fue kickeado, sus sesiones fueron eliminadas y no podrá acceder
+                        // El estado isOnline puede ser false por otras razones (navegador cerrado, etc.)
+                    })
+                    .catch(error => {
+                        isChecking = false;
+                        // No hacer nada en caso de error de red, solo loggear
+                        console.error('Error al verificar estado del usuario:', error);
+                    });
+                }
+                
+                // Verificar cada 2 segundos
+                statusCheckInterval = setInterval(checkUserStatus, 2000);
+                
+                // Verificar inmediatamente al cargar
+                checkUserStatus();
+                
+                // Limpiar al salir de la página
+                window.addEventListener('beforeunload', function() {
+                    clearInterval(statusCheckInterval);
+                });
+            })();
+        </script>
+        {% endif %}
     </body>
 </html>

@@ -39,6 +39,7 @@ security:
     access_control:
         - { path: ^/login$, roles: PUBLIC_ACCESS } 
         - { path: ^/register$, roles: PUBLIC_ACCESS }
+        - { path: ^/banned, roles: IS_AUTHENTICATED_FULLY }  # Permitir acceso a página de baneo si está autenticado
         - { path: ^/, roles: IS_AUTHENTICATED_FULLY } 
 
 when@test:

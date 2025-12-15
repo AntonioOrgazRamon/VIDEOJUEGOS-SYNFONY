@@ -1,0 +1,142 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Sesión Expulsada{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .kicked-container {
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .kicked-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 3rem 2.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border-left: 4px solid #ffc107;
+        }
+
+        .kicked-icon {
+            font-size: 80px;
+            margin-bottom: 1.5rem;
+            display: block;
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .kicked-title {
+            color: #fff;
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0 0 1rem 0;
+        }
+
+        .kicked-message {
+            color: #a3a8b7;
+            font-size: 1.125rem;
+            margin: 0 0 2rem 0;
+            line-height: 1.6;
+        }
+
+        .kicked-info {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            text-align: left;
+        }
+
+        .kicked-info p {
+            color: #fff;
+            margin: 0;
+            font-size: 0.9375rem;
+            line-height: 1.6;
+        }
+
+        .kicked-info strong {
+            color: #ffc107;
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .btn-login {
+            display: inline-block;
+            padding: 1rem 2.5rem;
+            background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+            color: #1a1a2e;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1.125rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 193, 7, 0.4);
+        }
+
+        .btn-login:active {
+            transform: translateY(0);
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="kicked-container">
+    <div class="kicked-card">
+        <span class="kicked-icon">🚪</span>
+        <h1 class="kicked-title">Sesión Expulsada</h1>
+        <p class="kicked-message">
+            Has sido desconectado de tu sesión por un administrador.
+        </p>
+        
+        <div class="kicked-info">
+            <strong>¿Qué ha pasado?</strong>
+            <p>
+                Un administrador ha expulsado tu sesión activa. Esto puede deberse a varias razones, 
+                como actividad sospechosa, violación de las normas de la comunidad, o por motivos de seguridad.
+            </p>
+        </div>
+
+        <div class="kicked-info">
+            <strong>¿Qué puedes hacer?</strong>
+            <p>
+                Puedes volver a iniciar sesión con tu cuenta. Si crees que esto fue un error, 
+                contacta con el soporte o los administradores de la plataforma.
+            </p>
+        </div>
+
+        <a href="{{ path('app_login') }}" class="btn-login">
+            🔐 Iniciar Sesión
+        </a>
+    </div>
+</div>
+{% endblock %}
+
